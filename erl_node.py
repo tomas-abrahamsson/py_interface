@@ -217,8 +217,12 @@ class ErlNode:
             mbox.Msg(msg)
         else:                           # dest node is remote
             # First make sure we are online
+            # FIXME: Will this really work???
+            #        Publish might register callbacks, but
+            #        this code continues after the Publish...
             self.Publish()
-            if not self._connections.has_key(destNode):
+            destNodeName = destNode.atomText
+            if not self._connections.has_key(destNodeName):
                 # We don't have a connection to the destination
                 # We must open a connection.
                 # This is done by pinging with the ping-callback
@@ -411,8 +415,6 @@ class ErlNode:
         else:
             ctrlMsg = (self.CTRLMSGOP_SEND, cookie, destPid)
         conn.SendMsg(ctrlMsg, msg)
-        print "ctrlMsg=%s" % `ctrlMsg`
-        print "    msg=%s" % `msg`
 
 
 ###
