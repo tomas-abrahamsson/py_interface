@@ -337,6 +337,7 @@ class ErlNode:
             cookie = ctrlMsg[1]
             toPid = ctrlMsg[2]
             msg = msg
+            erl_common.Debug("SEND: msg=%s" % `msg`)
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
             fromPid = ctrlMsg[1]
