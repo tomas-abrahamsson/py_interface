@@ -11,6 +11,7 @@ from Tkinter import *
 import erl_term
 import erl_node
 import erl_opts
+import erl_common
 import erl_eventhandler
 
 class TkTest:
@@ -142,7 +143,7 @@ def __TestMBoxCallback(msg):
 
 def main(argv):
     try:
-        opts, args = getopt.getopt(argv[1:], "?n:c:")
+        opts, args = getopt.getopt(argv[1:], "?dn:c:")
     except getopt.error, info:
         print info
         sys.exit(1)
@@ -150,6 +151,7 @@ def main(argv):
     hostName = "localhost"
     ownNodeName = "py_interface_test"
     cookie = "cookie"
+    doDebug = 0
 
     for (optchar, optarg) in opts:
         if optchar == "-?":
@@ -157,12 +159,17 @@ def main(argv):
             sys.exit(1)
         elif optchar == "-c":
             cookie = optarg
+        elif optchar == "-d":
+            doDebug = 1
         elif optchar == "-n":
             ownNodeName = optarg
 
     top = Tk()
     erl_eventhandler.SetEventHandlerStateTk(top)
 
+
+    if doDebug:
+        erl_common.DebugOnAll()
 
     print "Creating node..."
     n = erl_node.ErlNode(ownNodeName, erl_opts.ErlNodeOpts(cookie=cookie))
