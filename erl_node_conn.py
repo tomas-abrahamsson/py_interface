@@ -637,7 +637,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 self._state = self._STATE_DISCONNECTED
             self._peerDistrVersion = self.ReadInt2(data[1:3])
             self._peerFlags = self.ReadInt4(data[3:7])
-            self._peerName = self.ReadInt4(data[7:])
+            self._peerName = data[7:]
             # FIXME: check for connections _to_ this node:
             #        check whether nodeName > ownNodeName (or check < ?)
             self._SendStatusOk()
