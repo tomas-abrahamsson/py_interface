@@ -11,21 +11,39 @@ import erl_common
 import eventhandler
 import erl_async_conn
 
-class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
+def NodeNameMaybeAddDomain(nodeName):
+    if "@" in nodeName:
+        return nodeName
+    domainName = erl_common.GetHostName()
+    return nodeName + "@" + domainName
+
+def CheckDigest(digest, challenge, cookie):
+    expectedDigest = GenDigest(challenge, cookie)
+    return expectedDigest == digest
+        
+def GenDigest(challenge, cookie):
+    challengeStr = str(challenge)
+    if challengeStr[-1] == 'L':
+        challengeStr = challengeStr[:-1]
+    return md5.new(cookie + challengeStr).digest()
+
+def GenChallenge():
+    return int(random.random() * 0x7fffffff)
+
+
+class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     _STATE_DISCONNECTED = -1
     _STATE_HANDSHAKE_RECV_STATUS = 2
     _STATE_HANDSHAKE_RECV_CHALLENGE = 4
     _STATE_HANDSHAKE_RECV_CHALLENGE_ACK = 6
     _STATE_CONNECTED = 7
-    
-    
 
     def __init__(self, nodeName, cookie, distrVersion, flags):
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
         self._recvdata = ""
         self._hostName = None
         self._portNum = None
-        self._nodeName = self._NodeNameMaybeAddDomain(nodeName)
+        self._nodeName = nodeName
         self._cookie = cookie
         self._distrVersion = distrVersion
         self._flags = flags
@@ -45,12 +63,6 @@ class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
             self._state = self._STATE_HANDSHAKE_RECV_STATUS
         else:
             return 0
-
-    def _NodeNameMaybeAddDomain(self, nodeName):
-        if "@" in nodeName:
-            return nodeName
-        domainName = erl_common.GetHostName()
-        return nodeName + "@" + domainName
 
     def _In(self):
         """Callback routine, which is called when data is available
@@ -73,7 +85,6 @@ class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def _HandleData(self, data):
         remainingInput = data
-
         while 1:
             if len(remainingInput) < self._packetLenSize:
                 return remainingInput
@@ -92,37 +103,6 @@ class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
             self._HandlePacket(packetData)
             remainingInput = remainingInput[packetOffset+packetLen:]
 
-
-    def _SendName(self):
-        packet = "n" + \
-                 self.PackInt2(self._distrVersion) + \
-                 self.PackInt4(self._flags) + \
-                 self._nodeName
-        self._SendHandshakeMsg(packet)
-
-    def _SendStatusAliveTrue(self):
-        self._SendHandshakeMsg("true")
-
-    def _SendChallengeReply(self, challenge):
-        digest = self._GenDigest(challenge, self._cookie)
-        print "challenge = %s cookie = %s ==> digest = %s" % \
-              (`challenge`, self._cookie, `map(lambda x: ord(x), digest)`)
-        challengeToPeer = self._GenChallenge()
-        self._challengeToPeer = challengeToPeer
-        packet = "r" + self.PackInt4(challengeToPeer) + digest
-        self._SendHandshakeMsg(packet)
-
-    def _SendHandshakeMsg(self, packet):
-        msg = self.PackInt2(len(packet)) + packet
-        erl_common.Debug("Sending handshake:")
-        erl_common.HexDump(msg)
-        self.Send(msg)
-
-    def _SendMsg(self, packet):
-        msg = self.PackInt4(len(packet)) + packet
-        erl_common.Debug("Sending msg:")
-        erl_common.HexDump(msg)
-        self.Send(msg)
 
     def _HandlePacket(self, data):
         erl_common.Debug("Incoming message:")
@@ -154,13 +134,10 @@ class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
-            peerVersion = self.ReadInt2(data[1:3])
-            peerFlags = self.ReadInt4(data[3:7])
+            self._peerVersion = self.ReadInt2(data[1:3])
+            self._peerFlags = self.ReadInt4(data[3:7])
             challenge = self.ReadInt4(data[7:11])
-            peerName = data[11:]
-            self._peerVersion = peerVersion
-            self._peerFlags = peerFlags
-            self._peerName = peerName
+            self._peerName = data[11:]
             self._SendChallengeReply(challenge)
             self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE_ACK
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_ACK:
@@ -171,7 +148,7 @@ class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
             digest = data[1:]
-            if self._CheckDigest(digest):
+            if CheckDigest(digest, self._challengeToPeer, self._cookie):
                 self._packetLenSize = 4
                 self._state = self._STATE_CONNECTED
             else:
@@ -191,19 +168,223 @@ class ErlNodeConnection(erl_async_conn.ErlAsyncClientConnection):
             erl_common.DebugUnrecognizedMsg("state=%d" % self._state, data)
 
 
+    def _SendName(self):
+        packet = "n" + \
+                 self.PackInt2(self._distrVersion) + \
+                 self.PackInt4(self._flags) + \
+                 self._nodeName
+        self._SendHandshakeMsg(packet)
 
-    def _CheckDigest(self, digest):
-        expectedDigest = self._GenDigest(self._challengeToPeer, self._cookie)
-        return expectedDigest == digest
+    def _SendStatusAliveTrue(self):
+        self._SendHandshakeMsg("true")
+
+    def _SendChallengeReply(self, challenge):
+        digest = GenDigest(challenge, self._cookie)
+        print "challenge = %s cookie = %s ==> digest = %s" % \
+              (`challenge`, self._cookie, `map(lambda x: ord(x), digest)`)
+        challengeToPeer = GenChallenge()
+        self._challengeToPeer = challengeToPeer
+        packet = "r" + self.PackInt4(challengeToPeer) + digest
+        self._SendHandshakeMsg(packet)
+
+    def _SendHandshakeMsg(self, packet):
+        msg = self.PackInt2(len(packet)) + packet
+        erl_common.Debug("Sending handshake:")
+        erl_common.HexDump(msg)
+        self.Send(msg)
+
+    def _SendMsg(self, packet):
+        msg = self.PackInt4(len(packet)) + packet
+        erl_common.Debug("Sending msg:")
+        erl_common.HexDump(msg)
+        self.Send(msg)
+
+
+class ErlNode:
+    def __init__(self, nodeName, cookie, distrVersion, flags):
+        self._nodeName = NodeNameMaybeAddDomain(nodeName)
+        self._cookie = cookie
+        self._distrVersion = distrVersion
+        self._flags = flags
+        self._server = ServerSocket(nodeName, cookie, distrVersion, flags)
+        self._portNum = self.serverSocket.Start()
+        self._isServerPublished = 0
+
+    def CreateMBox(self, msgCallback=None):
+        pass
+
+    def Ping(self, remoteNodeName):
+        pass
+
+    def Publish(self):
+        pass
+
+    def Unpublish(self):
+        pass
+
+
+class ErlMBox:
+    def __init__(self):
+        pass
+
+    def Send(self, dest, msg):
+        pass
+
+    def Link(self, otherEnd):
+        pass
+
+    def Unlink(self, otherEnd):
+        pass
+
+
+class ServerSocket(erl_async_conn.ErlAsyncServer):
+    def __init__(self, nodeName, cookie, distrVersion, flags):
+        erl_async_conn.ErlAsyncServer.__init__(self)
+        self._nodeName = nodeName
+        self._cookie = cookie
+        self._distrVersion = distrVersion
+        self._flags = flags
+
+    def _NewConnection(self, s, remoteAddr):
+        inConn = ErlNodeInConnection(s,
+                                     self._nodeName, self._cookie,
+                                     self._distrVersion, self._flags)
+
+class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
+    _STATE_DISCONNECTED = -1
+    _STATE_HANDSHAKE_RECV_NAME = 1
+    _STATE_HANDSHAKE_RECV_STATUS = 3
+    _STATE_HANDSHAKE_RECV_CHALLENGE_REPLY = 5
+    _STATE_CONNECTED = 7
+
+    def __init__(self, sock, nodeName, cookie, distrVersion, flags):
+        erl_async_conn.ErlAsyncPeerConnection.__init__(self, sock)
+        self._recvdata = ""
+        self._hostName = None
+        self._portNum = None
+        self._nodeName = nodeName
+        self._cookie = cookie
+        self._distrVersion = distrVersion
+        self._flags = flags
+        self._state = self._STATE_DISCONNECTED
+        # 2 bytes for the packet length during the handshake, then 4 bytes
+        self._packetLenSize = 2         
+
+    def _In(self):
+        """Callback routine, which is called when data is available
+        on the connection."""
+        connection = self.GetConnection()
+        newData = connection.recv(100000)
+        if len(newData) == 0:
+            self.Close()
+            if self._state != self._STATE_CONNECTED:
+                self._state = self._STATE_DISCONNECTED
+                self._connectFailedCb()
+            else:
+                self._state = self._STATE_DISCONNECTED
+                self._connectBrokenCb()
+            return
+
+        self._recvdata = self._recvdata + newData
+        remainingUnhandledData = self._HandleData(self._recvdata)
+        self._recvdata = remainingUnhandledData
+
+    def _HandleData(self, data):
+        remainingInput = data
+        while 1:
+            if len(remainingInput) < self._packetLenSize:
+                return remainingInput
+
+            if self._packetLenSize == 2:
+                packetLen = self.ReadInt2(remainingInput[0:2])
+                packetOffset = 2
+            else:
+                packetLen = self.ReadInt4(remainingInput[0:4])
+                packetOffset = 4
+
+            if len(remainingInput) < self._packetLenSize + packetLen:
+                return remainingInput
+
+            packetData = remainingInput[packetOffset:packetOffset+packetLen]
+            self._HandlePacket(packetData)
+            remainingInput = remainingInput[packetOffset+packetLen:]
+
+    def _HandlePacket(self, data):
+        erl_common.Debug("Incoming message:")
+        erl_common.HexDump(data)
+
+        if self._state == self._STATE_HANDSHAKE_RECV_NAME:
+            # First check that the correct message came in
+            if data[0] != "n":
+                erl_common.DebugUnrecognizedMsg("handshake recv_name", data)
+                self.Close()
+                self._state = self._STATE_DISCONNECTED
+            self._peerDistrVersion = self.ReadInt2(data[1:3])
+            self._peerFlags = self.ReadInt4(data[3:7])
+            self._peerName = self.ReadInt4(data[7:])
+            # FIXME: check for connections _to_ this node:
+            #        check whether nodeName > ownNodeName (or check < ?)
+            self._SendStatusOk()
+            self._SendChallenge()
+            self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE_REPLY
+        elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_REPLY:
+            # First check that the correct message came in
+            if data[0] != "r":
+                erl_common.DebugUnrecognizedMsg("handshake recv_chreply", data)
+                self.Close()
+                self._state = self._STATE_DISCONNECTED
+            peersChallenge = self.ReadInt4(data[1:5])
+            peersDigest = data[5:]
+            if CheckDigest(peersDigest, self._challengeToPeer, self._cookie):
+                self._SendChallengeAck(peersChallenge)
+                self._packetLenSIze = 4
+                self._state = self._STATE_CONNECTED
+            else:
+                erl_common.Debug("Connection attempt from disallowed node %s" %
+                                 self._peerName)
+                self.Close()
+                self._state = self._STATE_DISCONNECTED
+        elif self._state == self._STATE_CONNECTED:
+            if len(data) == 0:
+                # tick. Answer with another tick
+                erl_common.Debug("Tick")
+                self._SendMsg("")
+            else:
+                erl_common.DebugUnrecognizedMsg("connected", data)
+        else:
+            erl_common.DebugUnrecognizedMsg("state=%d" % self._state, data)
             
-    def _GenDigest(self, challenge, cookie):
-        challengeStr = str(challenge)
-        if challengeStr[-1] == 'L':
-            challengeStr = challengeStr[:-1]
-        return md5.new(self._cookie + challengeStr).digest()
 
-    def _GenChallenge(self):
-        return int(random.random() * 0x7fffffff)
+    def _SendStatusOk(self):
+        self._SendHandshakeMsg("ok")
+
+    def _SendChallenge(self):
+        challenge = GenChallenge()
+        self._challengeToPeer = challenge
+        packet = "n" + \
+                 self.PackInt2(self._distrVersion) + \
+                 self.PackInt4(self._flags) + \
+                 self.PackInt4(challenge) + \
+                 self._nodeName
+        self._SendHandshakeMsg(packet)
+
+    def _SendChallengeAck(self, challenge):
+        packet = "a" + GenDigest(challenge, self._cookie)
+        self._SendHandshakeMsg(packet)
+
+    def _SendHandshakeMsg(self, packet):
+        msg = self.PackInt2(len(packet)) + packet
+        erl_common.Debug("Sending handshake:")
+        erl_common.HexDump(msg)
+        self.Send(msg)
+
+    def _SendMsg(self, packet):
+        msg = self.PackInt4(len(packet)) + packet
+        erl_common.Debug("Sending msg:")
+        erl_common.HexDump(msg)
+        self.Send(msg)
+
+
 
 def __TestConnectOk():
     print "ConnectOk"
@@ -249,13 +430,15 @@ def main(argv):
     else:
         sys.exit(1)
 
+    ownNodeName = NodeNameMaybeAddDomain(ownNodeName)
+
     print "Connecting to %s:%d"
     print "  ownNodeName=\"%s\"" % ownNodeName
     print "  cookie=\"%s\"" % cookie
     print "  ownDistrVersion=%d" % ownDistrVersion
     print "  ownFlags=%d" % ownFlags
 
-    c = ErlNodeConnection(ownNodeName, cookie, ownDistrVersion, ownFlags)
+    c = ErlNodeOutConnection(ownNodeName, cookie, ownDistrVersion, ownFlags)
     c.InitiateConnection(hostName, portNum,
                          __TestConnectOk,
                          __TestConnectFailed,

@@ -4,26 +4,15 @@ import erl_common
 import eventhandler
 
 
-class ErlAsyncClientConnection:
-    def __init__(self):
-        self._isConnected = 0
-        self._Init()
+class ErlAsyncPeerConnection:
+    def __init__(self, openSocket=None):
         self.evhandler = eventhandler.GetEventHandler()
+        if openSocket == None:
+            self._Init()
+        else:
+            self._Init()
+            self._SetConnectionOpen(openSocket)
         
-
-    def Connect(self, hostname, portNum):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        try:
-            s.connect((hostname, portNum))
-            s.setblocking(0)
-            self.hostname = hostname
-            self.portNum = portNum
-            self._SetConnectionOpen(s)
-            return 1
-        except socket.error, errInfo:
-            print "socket error:", errInfo
-            self._SetConnectionClosed()
-            return 0
 
     def Close(self):
         if not self._isConnected:
@@ -42,14 +31,12 @@ class ErlAsyncClientConnection:
         else:
             return self._connection
 
-
     ##
     ## Internal routines
     ##
 
-
     def _Init(self):
-        self._currentRequests = []
+        self._isConnected = 0
         self._pendingOutput = ""
 
     def _SetConnectionClosed(self):
@@ -120,3 +107,51 @@ class ErlAsyncClientConnection:
     def PackInt4(self, i):
         return erl_common.PackInt4(i)
     
+
+class ErlAsyncClientConnection(ErlAsyncPeerConnection):
+    def __init__(self):
+        ErlAsyncPeerConnection.__init__(self)
+
+
+    def Connect(self, hostname, portNum):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.connect((hostname, portNum))
+            s.setblocking(0)
+            self.hostname = hostname
+            self.portNum = portNum
+            self._SetConnectionOpen(s)
+            return 1
+        except socket.error, errInfo:
+            print "socket error:", errInfo
+            self._SetConnectionClosed()
+            return 0
+
+
+class ErlAsyncServer(ErlAsyncPeerConnection):
+    def __init__(self):
+        ErlAsyncPeerConnection.__init__(self)
+        
+    def Start(self, portNum=0, iface=""):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.setsockopt(SOCKET.SOL_SOCKET, SOCKET.SO_REUSEADDR, 1)
+            s.bind((iface, portNum))
+            (ipNum, resultPortNum) = s.getsockname()
+            s.listen(5)
+            s.setblocking(0)
+            self.hostname = iface
+            self.portNum = resultPortNum
+            return resultPortNum
+        except socket.error, errInfo:
+            print "socket error:", errInfo
+            return None
+
+    def _In(self):
+        s = self.GetConnection()
+        (s2, (remoteHost, remotePort)) = s.accept()
+        self._NewConnection(s2, (remoteHost, remotePort))
+        
+    def _NewConnection(self, sockConn, remoteAddr):
+        asyncConnection = ErlAsyncPeerConnection(s2)
+        pass
