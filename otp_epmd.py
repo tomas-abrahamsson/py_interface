@@ -10,10 +10,40 @@ import erl_async_conn
 NODETYPE_NORMAL = 77
 NODETYPE_HIDDEN = 72
 
-class OtpEpmdConnection(erl_async_conn.AsyncClientConnection):
-    def In(self, data):
-        pass
-        
+import common
+import erl_async_conn
+
+class ErlEPMDOneShotConnection(ErlAsyncClientConnection):
+    def __init__(self):
+        ErlAsyncClientConnection.__init__(self)
+        self._recvdata = ""
+        self._oneShotCallback = None
+
+    def Send(self, data, eofCallbackFn):
+        """Send the data, then read all incoming data until eof on connection.
+        Then call the eofCallbackFn, with first arg being the incoming data."""
+        self._oneShotCallback = eofCallbackFn
+        self.Send(data)
+
+    ##
+    ## Internal routines
+    ##
+
+    def _In(self):
+        """Callback routine, which is called when data is available
+        on the connection."""
+        connection = self.GetConnection()
+        newData = connection.recv()
+        if len(newData) == 0:
+            self.Close()
+            if self._oneShotCallback != None:
+                self._oneShotCallback(self._recvdata)
+        else:
+            self._recvdata = self._recvdata + newData
+                
+
+class ErlEPMDLongConnection(ErlAsyncClientConnection):
+    pass
 
 
 class OtpEpmd:
@@ -68,33 +98,40 @@ class OtpEpmd:
     def AliveCloseReq(self):
         self.Close()
 
-    def PortPleaseReq(self, nodeName):
+    def PortPleaseReq(self, nodeName, callback, host="localhost", port=4369):
         msg = self._PackInt1(self._PORT_PLEASE_REQ) + nodeName
-        self._SendReq(msg)
+        unpackcb = common.VCallback(self._UnpackPortPleaseResp, callback)
+        self._SendOneShotReq(msg, unpackcb, host, port)
 
-    def PortPlease2Req(self, nodeName):
+    def PortPlease2Req(self, nodeName, callback, host="localhost", port=4369):
         msg = self._PackInt1(self._PORT_PLEASE2_REQ) + nodeName
-        self._SendReq(msg)
+        unpackcb = common.VCallback(self._UnpackPortPlease2Resp, callback)
+        self._SendOneShotReq(msg, unpackcb, host, port)
 
-    def NamesReq(self):
+    def NamesReq(self, callback, host="localhost", port=4369):
         msg = self._PackInt1(self._NAMES_REQ)
-        self._SendReq(msg)
+        unpackcb = common.VCallback(self._UnpackNamesResp, callback)
+        self._SendOneShotReq(msg, unpackcb, host, port)
 
-    def DumpReq(self):
+    def DumpReq(self, callback, host="localhost", port=4369):
         msg = self._PackInt1(self._DUMP_REQ)
-        self._SendReq(msg)
+        unpackcb = common.VCallback(self._UnpackDumpResp, callback)
+        self._SendOneShotReq(msg, unpackcb, host, port)
 
-    def KillReq(self):
+    def KillReq(self, callback, host="localhost", port=4369):
         msg = self._PackInt1(self._KILL_REQ)
-        self._SendReq(msg)
+        unpackcb = common.VCallback(self._UnpackKillResp, callback)
+        self._SendOneShotReq(msg, unpackcb, host, port)
 
-    def StopReq(self, nodeName):
+    def StopReq(self, nodeName, callback, host="localhost", port=4369):
         raise "Not used"
         msg = self._PackInt1(self._STOP_REQ) + nodeName
-        self._SendReq(msg)
+        unpackcb = common.VCallback(self._UnpackStopResp, callback)
+        self._SendOneShotReq(msg, unpackcb, host, port)
 
     ## Responses
     ##
+
 
     def AliveOkResp(self, creation):
         print "AliveOkResp creation=%d" % creation
@@ -218,6 +255,65 @@ class OtpEpmd:
                 pass
 
 
+    ##
+    ## Oneshot
+    ##
+
+    def _SendOneShotReq(self, msg, unpackcb, host, port):
+        newOneShooterConn = ErlEPMDOneShotConnection()
+        if newOneShooterConn.Connect(host, port)
+            newOneShooterConn.Send(msg, unpackcb)
+            return 1
+        else:
+            return 0
+
+    ##
+    ## Unpack routines
+    ##
+
+    def _UnpackPortPleaseResp(self, resp, cb):
+        portNum = self._ReadInt2(resp[0:2])
+        cb(portNum)
+
+    def _UnpackPortPlease2Resp(self, resp, cb):
+        if len(resp) == 2:
+            result = self._ReadInt1(resp[1])
+            cb(result)
+        else:
+            result = self._ReadInt1(resp[1])
+            portNum = self._ReadInt2(resp[2:4])
+            nodeType = self._ReadInt1(resp[4])
+            protocol = self._ReadInt1(resp[5])
+            distrVSNLo = self._ReadInt2(resp[6:8])
+            distrVSNHi = self._ReadInt2(resp[8:10])
+            distrVSNRange = (distrVSNLo, distrVSNHi)
+            nLen = self._ReadInt2(resp[10:12])
+            nodeName = self._ReadInt2(resp[12:12 + nLen])
+            eLen = self._ReadInt2(resp[12 + nLen:12 + nLen + 2])
+            extra = self._ReadInt2(resp[12 + nLen + 2:])
+            cb(portNum, nodeType, protocol, distrVSNRange, nodeName, extra)
+
+    def _UnpackNamesResp(self, resp, cb):
+        epmdPortNum = self._ReadInt4(resp[0:4])
+        nodeInfo = self._ReadInt4(resp[4:])
+        cb(epmdPortNum, nodeInfo)
+
+    def _UnpackDumpResp(self, resp, cb):
+        epmdPortNum = self._ReadInt4(resp[0:4])
+        nodeInfo = self._ReadInt4(resp[4:])
+        cb(epmdPortNum, nodeInfo)
+
+    def _UnpackKillResp(self, resp, cb):
+        cb(resp)
+
+    def _UnpackStopResp(self, resp, cb):
+        cb(resp)
+
+    ##
+    ## Incoming on ordinary epmd connection...
+    ## FIXME
+    ##
+
     def _In(self):
         is_closed = 0
         print "_In: getting data..."
@@ -289,52 +385,10 @@ class OtpEpmd:
             creation = self._ReadInt2(resp[2:4])
             self.Alive2Resp(result, creation)
             return (1, remaining)
-        elif resp0 == self._PORT2_RESP and \
-           self._GetCurrReq() == self._PORT_PLEASE2_REQ:
-            if len(resp) == 2:
-                result = self._ReadInt1(resp[1])
-                self.Port2NotOkResp(result)
-                return (1, remaining)
-            else:
-                result = self._ReadInt1(resp[1])
-                portNum = self._ReadInt2(resp[2:4])
-                nodeType = self._ReadInt1(resp[4])
-                protocol = self._ReadInt1(resp[5])
-                distrVSNLo = self._ReadInt2(resp[6:8])
-                distrVSNHi = self._ReadInt2(resp[8:10])
-                distrVSNRange = (distrVSNLo, distrVSNHi)
-                nLen = self._ReadInt2(resp[10:12])
-                nodeName = self._ReadInt2(resp[12:12 + nLen])
-                eLen = self._ReadInt2(resp[12 + nLen:12 + nLen + 2])
-                extra = self._ReadInt2(resp[12 + nLen + 2:])
-                self.Port2OkResp(portNum, nodeType, protocol, distrVSNRange,
-                                 nodeName, extra)
-                return (1, remaining)
-        elif self._GetCurrReq() == self._PORT_REQ:
-            portNum = self._ReadInt2(resp[0:2])
-            self.PortOkResp(portNum)
-            return (1, remaining)
-        elif self._GetCurrReq() == self._NAMES_REQ:
-            epmdPortNum = self._ReadInt4(resp[0:4])
-            nodeInfo = self._ReadInt4(resp[4:])
-            self.NamesResp(epmdPortNum, nodeInfo)
-            return (1, remaining)
-        elif self._GetCurrReq() == self._DUMP_REQ:
-            epmdPortNum = self._ReadInt4(resp[0:4])
-            nodeInfo = self._ReadInt4(resp[4:])
-            self.DumpResp(epmdPortNum, nodeInfo)
-            return (1, remaining)
-        elif self._GetCurrReq() == self._KILL_REQ:
-            self.KillResp(resp)
-            return (1, remaining)
-        elif self._GetCurrReq() == self._STOP_REQ:
-            self.StopResp(resp)
-            return (1, remaining)
 
         currReqTxt = "current request is %s" % `self._GetCurrReq()`
         erl_common.DebugUnrecognizedMsg("EPMD, trown away "+currReqTxt, resp)
         return (None, remaining)
-        
 
 
     def _ReadInt1(self, s):

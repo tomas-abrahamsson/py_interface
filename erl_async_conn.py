@@ -1,7 +1,7 @@
 import eventhandler
 
 
-class AsyncClientConnection:
+class ErlAsyncClientConnection:
     def __init__(self):
         self._isConnected = 0
         self._Init()
@@ -31,6 +31,13 @@ class AsyncClientConnection:
     
     def Send(self, data):
         self._SendOrQueue(data)
+
+
+    def GetConnection(self):
+        if not self._isConnected:
+            return None
+        else:
+            return self._connection
 
 
     ##
