@@ -37,11 +37,6 @@ import erl_node_conn
 import erl_eventhandler
 
 
-DISTR_FLAGS_PUBLISHED = 1;
-DISTR_FLAGS_ATOMCACHE = 2;
-DISTR_FLAGS_EXTENDEDREFERENCES = 4;
-DISTR_FLAGS_DISTMONITOR = 8;
-DISTR_FLAGS_FUNTAGS = 16;
 
 M = "erl_node"
 

@@ -24,13 +24,23 @@
 
 ### erl_opts.py -- holder class for options for the node
 
+DISTR_FLAG_PUBLISHED = 1;
+DISTR_FLAG_ATOMCACHE = 2;
+DISTR_FLAG_EXTENDEDREFERENCES = 4;
+DISTR_FLAG_DISTMONITOR = 8;
+DISTR_FLAG_FUNTAGS = 16;
+DISTR_FLAG_DISTMONITORNAME = 32;
+DISTR_FLAG_HIDDENATOMCACHE = 64;
+DISTR_FLAG_NEWFUNTAGS = 128;
+
 class ErlNodeOpts:
     def __init__(self,
                  netTickTime=60,
                  shortNodeNames=1,
                  cookie="",
                  distrVersion=5,
-                 distrFlags=4):
+                 distrFlags=DISTR_FLAG_EXTENDEDREFERENCES
+                 ):
         self._netTickTime = netTickTime
         self._shortNodeNames = shortNodeNames
         self._cookie = cookie
