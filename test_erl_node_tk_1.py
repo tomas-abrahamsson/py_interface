@@ -101,11 +101,14 @@ class TkTest:
         print "  m=%s" % `m`
         print "  f=%s" % `f`
         print "  a=%s" % `a`
-        self.mbox.SendRPC(n, m, f, a, self._TestMBoxCallback)
+        self.mbox.SendRPC(n, m, f, a, self._TestMBoxRPCResponse)
 
 
     def _TestMBoxCallback(self, msg, *x, **kw):
         print "Incoming msg=%s" % `msg`
+
+    def _TestMBoxRPCResponse(self, msg):
+        print "RPC answer: %s" % `msg`
 
     def NDump(self, event=None):
         self.node.DumpConnections()
