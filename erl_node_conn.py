@@ -308,8 +308,8 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             if self._state != self._STATE_CONNECTED:
                 self._state = self._STATE_DISCONNECTED
             else:
+                erl_common.Debug("InConnection: Connection broken")
                 self._state = self._STATE_DISCONNECTED
-                erl_common.Debug("Connection broken")
                 self._connectionBrokenCb(self, self.GetPeerNodeName())
             return
 
