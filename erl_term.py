@@ -373,7 +373,7 @@ def _UnpackOneTerm(data):
         (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
         if elements == None:
             return (None, data)
-        return (ErlList(elements), remainingData)
+        return (ErlList(elements), remainingData[1:])
 
     elif data0 == MAGIC_BINARY:
         if dataLen < 5:
