@@ -52,7 +52,7 @@ The overall format of the term format is:
 | 131 | Tag |   Data      |
 +-----+-----+-------------+
 
-2.2. SMALL_INTEGER_EXT (97)
+2.2. SMALL_INTEGER_EXT (97 == "a" == 0x61)
 
   1    1
 +----+-----+
@@ -61,7 +61,7 @@ The overall format of the term format is:
 
 unsigned 8 bit integer.
 
-2.3. INTEGER_EXT       (98)
+2.3. INTEGER_EXT       (98 == "b" == 0x62)
 
   1       4
 +----+-----------+
@@ -70,7 +70,7 @@ unsigned 8 bit integer.
 
 signed 32 bit integer in big endian format (i.e MSB first)
 
-2.4. FLOAT_EXT         (99)
+2.4. FLOAT_EXT         (99 == "c" == 0x63)
 
   1         31
 +----+----------------+
@@ -81,7 +81,7 @@ A float is stored in string format. the format used in sprintf to
 format the float is "%.20e"  (there are more byte allocated than neccessary)
 To unpack the float use sscanf with format "%lf"
 
-2.5. ATOM_EXT          (100)
+2.5. ATOM_EXT          (100 == "d" == 0x64)
 
   1       2        Len
 +-----+-------+-----------+
@@ -93,7 +93,7 @@ Len numbers of 8 bit characters that forms the atom name.
 The Len MUST be limitied to 255, which means that the Len field may be
 reduced to 1 byte.
 
-2.6. REFERENCE_EXT     (101)
+2.6. REFERENCE_EXT     (101 == "e" == 0x65)
 
   1       N            4           1
 +-----+-----------+-----------+----------+
@@ -112,7 +112,7 @@ In Creation, only 2 bits are significant; the rest should be 0.
 
 See 2.19 (NEW_REFERENCE_EXT).
 
-2.7. PORT_EXT          (102)
+2.7. PORT_EXT          (102 == "f" == 0x66)
 
   1       N            4           1
 +-----+-----------+-----------+----------+
@@ -124,7 +124,7 @@ The ID is a node specific identifier for a local port. The distribution
 in 4.4 does not support port operations across node boundaries.
 The Creation works just like in REFERENCE_EXT
 
-2.8. PID_EXT           (103)
+2.8. PID_EXT           (103 == "g" == 0x67)
 
   1       N            4            4           1
 +-----+-----------+-----------+-----------+----------+
@@ -137,7 +137,7 @@ the Serial field is used to improve safety.
 
 In ID, only 15 bits are significant; the rest should be 0.
 
-2.9. SMALL_TUPLE_EXT   (104)
+2.9. SMALL_TUPLE_EXT   (104 == "h" == 0x68)
 
   1       1        N
 +-----+-------+--------------+
@@ -147,7 +147,7 @@ In ID, only 15 bits are significant; the rest should be 0.
 The x_TUPLE_EXT encodes a tuple. The Arity is an unsigned byte that
 determines how many element that follows in the Elements section.
 
-2.10. LARGE_TUPLE_EXT   (105)
+2.10. LARGE_TUPLE_EXT   (105 == "i" == 0x69)
 
   1       4        N
 +-----+-------+--------------+
@@ -157,7 +157,7 @@ determines how many element that follows in the Elements section.
 See SMALL_TUPLE_EXT with the exception that Arity is an unsigned 4 byte integer
 in big endian format.
 
-2.11. NIL_EXT           (106)
+2.11. NIL_EXT           (106 == "j" == 0x6a)
 
    1
 +-----+
@@ -167,7 +167,7 @@ in big endian format.
 The represenation for [].
 
 
-2.12. STRING_EXT        (107)
+2.12. STRING_EXT        (107 == "k" == 0x6b)
 
    1     2        Len
 +-----+-----+-----------------+
@@ -181,7 +181,7 @@ implementations must make sure that lists longer than 65535 elements are
 encoded with the LIST_EXT (2.13.).
 
 
-2.13. LIST_EXT          (108)
+2.13. LIST_EXT          (108 == "l" == 0x6c)
 
    1      4             
 +-----+--------+---------------------+
@@ -191,7 +191,7 @@ encoded with the LIST_EXT (2.13.).
 Lists are stored in the same way as the LARGE_TUPLE_EXT, There is NO
 short form i.e no SMALL_LIST_EXT.
 
-2.14. BINARY_EXT        (109)
+2.14. BINARY_EXT        (109 == "m" == 0x6d)
 
    1      4           Len
 +-----+-------+---------------------+
@@ -202,7 +202,7 @@ Binaries are generated with list_to_binary/1, term_to_binary/1 or
 as input from binary ports. The Len length field is an unsigned 4 byte integer
 (big endian).
 
-2.15. SMALL_BIG_EXT     (110)
+2.15. SMALL_BIG_EXT     (110 == "n" == 0x6e)
 
    1      1      1        n
 +-----+-------+------+------------------+
@@ -217,7 +217,7 @@ the following formula may come in handy.
    where B = 256
    (-1)^Sign * (d0*B^0 + d1*B^1 + d2*B^2 + ... d(N-1)*B^(n-1))
 
-2.16. LARGE_BIG_EXT     (111)
+2.16. LARGE_BIG_EXT     (111 == "o" == 0x6f)
 
    1      4      1         n
 +-----+-------+------+------------------+
@@ -227,7 +227,7 @@ the following formula may come in handy.
 See SMALL_BIG_EXT with the difference that the length field is an unsigned
 4 byte integer.
 
-2.17 NEW_CACHE         (78)
+2.17 NEW_CACHE         (78 == "N" == 0x4e)
 
   1       1       2         Len
 +----+-------+--------+-----------+
@@ -237,7 +237,7 @@ See SMALL_BIG_EXT with the difference that the length field is an unsigned
 NEW_CACHE works just like ATOM_EXT but it must also cache the atom 
 in the atom cache in the location given by index.
 
-2.18. CACHED_ATOM       (67)
+2.18. CACHED_ATOM       (67 == "C" == 0x43)
 
    1      1
 +----+-------+
@@ -247,7 +247,7 @@ in the atom cache in the location given by index.
 When the atom cache is in use, index is the slot number that the 
 atom MUST be located.
 
-2.19. NEW_REFERENCE_EXT		(114)
+2.19. NEW_REFERENCE_EXT		(114 == "r" == 0x72)
 
   1      2       N            1           N'
 +-----+-----+-----------+-----------+-----------+
@@ -270,7 +270,7 @@ In version 4, N' should be at most 12.
 
 See 2.7 (REFERENCE_EXT).
 
-2.20. FUN_EXT		(117)
+2.20. FUN_EXT		(117 == "u" == 0x75)
 
   1      4    N1      N2      N3      N4      4*Len
 +-----+-----+-----+--------+-------+------+--------------+
@@ -585,7 +585,7 @@ where:
 
 	Length is equal to 1 + n + m
 
-	Type is: 112 - pass through
+	Type is: 112 - pass through		(112 == "p" == 0x70)
 
 	ControlMsg is a tuple passed using the external format of
 	Erlang.
