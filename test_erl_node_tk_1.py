@@ -10,14 +10,14 @@ from Tkinter import *
 
 import erl_term
 import erl_node
-import eventhandler
+import erl_eventhandler
 
 class TkTest:
     def __init__(self, top, node, mbox):
         self.node = node
         self.mbox = mbox
 
-        self.evhand = eventhandler.GetEventHandler()
+        self.evhand = erl_eventhandler.GetEventHandler()
         if sys.stdin.isatty():
             # only useful if stdin might generate KeyboardInterrupt
             self.__CheckKbdInterrupt()
@@ -160,7 +160,7 @@ def main(argv):
             ownNodeName = optarg
 
     top = Tk()
-    eventhandler.SetEventHandlerStateTk(top)
+    erl_eventhandler.SetEventHandlerStateTk(top)
 
 
     print "Creating node..."
@@ -175,7 +175,7 @@ def main(argv):
     TkTest(top, n, m)
 
     print "Looping..."
-    evhand = eventhandler.GetEventHandler()
+    evhand = erl_eventhandler.GetEventHandler()
     evhand.Loop()
 
 try:

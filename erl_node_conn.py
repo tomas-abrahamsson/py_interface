@@ -3,14 +3,15 @@ import types
 import string
 import socket
 import random
-import getopt
 import md5
 
 
 import erl_term
 import erl_common
-import eventhandler
 import erl_async_conn
+import erl_eventhandler
+
+M = "erl_node_conn"
 
 def CheckDigest(digest, challenge, cookie):
     expectedDigest = GenDigest(challenge, cookie)
@@ -119,13 +120,10 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
     def _HandlePacket(self, data):
-        erl_common.Debug("Incoming msg:")
-        erl_common.HexDump(data)
-
         if self._state == self._STATE_HANDSHAKE_RECV_STATUS:
             # First check that the correct message came in
             if data[0] != "s":
-                erl_common.DebugUnrecognizedMsg("handshake recv_status", data)
+                erl_common.DebugHex(M, "handshake:recv_status: got", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
@@ -140,11 +138,11 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._SendStatusAliveTrue()
                 self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE
             else:
-                erl_common.DebugUnrecognizedMsg("handshake recv_status", data)
+                erl_common.DebugHex(M, "handshake:recv_status", data)
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE:
             # First check that the correct message came in
             if data[0] != "n":
-                erl_common.DebugUnrecognizedMsg("handshake recv_cha", data)
+                erl_common.DebugUnrecognizedMsg(M, "handshake:recv_cha", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
@@ -157,7 +155,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_ACK:
             # First check that the correct message came in
             if data[0] != "a":
-                erl_common.DebugUnrecognizedMsg("handshake recv_cha_ack", data)
+                erl_common.DebugUnrecognizedMsg(M, "handshake:recv_cha_ack",
+                                                data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
@@ -167,7 +166,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._state = self._STATE_CONNECTED
                 self._connectOkCb()
             else:
-                erl_common.Debug("Connection attempt to disallowed node %s" %
+                erl_common.Debug(M,
+                                 "Connection attempt to disallowed node %s" %
                                  self._peerName)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
@@ -175,7 +175,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         elif self._state == self._STATE_CONNECTED:
             if len(data) == 0:
                 # tick. Answer with another tick
-                erl_common.Debug("Tick")
+                erl_common.Debug(M, "Tick")
                 self._SendPacket("")
             else:
                 msgType = data[0]
@@ -192,12 +192,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                                                controlMsg, msg)
                     else:
                         debugTxt = "PassThrough-msg: terms=%s" % `terms`
-                        erl_common.DebugUnrecognizedMsg(debugTxt, data)
+                        erl_common.DebugHex(M, debugTxt, data)
                 else:
                     debugTxt = "msgType=%c" % msgType
-                    erl_common.DebugUnrecognizedMsg(debugTxt, data)
+                    erl_common.DebugHex(M, debugTxt, data)
         else:
-            erl_common.DebugUnrecognizedMsg("state=%d" % self._state, data)
+            erl_common.DebugUnrecognizedMsg(M, "state=%d" % self._state, data)
 
 
     def _SendName(self):
@@ -219,14 +219,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def _SendHandshakeMsg(self, packet):
         msg = self.PackInt2(len(packet)) + packet
-        erl_common.Debug("Sending handshake:")
-        erl_common.HexDump(msg)
+        erl_common.Debug(M, "Sending handshake")
         self.Send(msg)
 
     def _SendPacket(self, packet):
         msg = self.PackInt4(len(packet)) + packet
-        erl_common.Debug("Sending msg:")
-        erl_common.HexDump(msg)
+        erl_common.Debug(M, "Sending msg")
         self.Send(msg)
 
 
@@ -248,7 +246,7 @@ class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
         return erl_async_conn.ErlAsyncServer.Start(self)
 
     def _NewConnection(self, s, remoteAddr):
-        erl_common.Debug("new connection from %s" % `remoteAddr`)
+        erl_common.Debug(M, "new connection from %s" % `remoteAddr`)
         inConn = ErlNodeInConnection(s,
                                      self._nodeName, self._cookie,
                                      self._distrVersion, self._flags,
@@ -310,7 +308,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             if self._state != self._STATE_CONNECTED:
                 self._state = self._STATE_DISCONNECTED
             else:
-                erl_common.Debug("InConnection: Connection broken")
+                erl_common.Debug(M, "InConnection: Connection broken")
                 self._state = self._STATE_DISCONNECTED
                 self._connectionBrokenCb(self, self.GetPeerNodeName())
             return
@@ -340,13 +338,10 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             remainingInput = remainingInput[packetOffset+packetLen:]
 
     def _HandlePacket(self, data):
-        erl_common.Debug("Incoming msg:")
-        erl_common.HexDump(data)
-
         if self._state == self._STATE_HANDSHAKE_RECV_NAME:
             # First check that the correct message came in
             if data[0] != "n":
-                erl_common.DebugUnrecognizedMsg("handshake recv_name", data)
+                erl_common.DebugHex(M, "handshake:recv_name", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
             self._peerDistrVersion = self.ReadInt2(data[1:3])
@@ -360,7 +355,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_REPLY:
             # First check that the correct message came in
             if data[0] != "r":
-                erl_common.DebugUnrecognizedMsg("handshake recv_chreply", data)
+                erl_common.DebugHex(M, "handshake:recv_chreply", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
             peersChallenge = self.ReadInt4(data[1:5])
@@ -371,14 +366,15 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 self._state = self._STATE_CONNECTED
                 self._newConnectionUpCb(self, self.GetPeerNodeName())
             else:
-                erl_common.Debug("Connection attempt from disallowed node %s" %
+                erl_common.Debug(M,
+                                 "Connection attempt from disallowed node %s" %
                                  self._peerName)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
         elif self._state == self._STATE_CONNECTED:
             if len(data) == 0:
                 # tick. Answer with another tick
-                erl_common.Debug("Tick")
+                erl_common.Debug(M, "Tick")
                 self._SendPacket("")
             else:
                 msgType = data[0]
@@ -395,12 +391,12 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                                                controlMsg)
                     else:
                         debugTxt = "PassThrough-msg: terms=%s" % `terms`
-                        erl_common.DebugUnrecognizedMsg(debugTxt, data)
+                        erl_common.DebugHex(M, debugTxt, data)
                 else:
                     debugTxt = "msgType=%c" % msgType
-                    erl_common.DebugUnrecognizedMsg(debugTxt, data)
+                    erl_common.DebugHex(M, debugTxt, data)
         else:
-            erl_common.DebugUnrecognizedMsg("state=%d" % self._state, data)
+            erl_common.DebugHex(M, "state=%d" % self._state, data)
             
 
     def _SendStatusOk(self):
@@ -422,93 +418,10 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
 
     def _SendHandshakeMsg(self, packet):
         msg = self.PackInt2(len(packet)) + packet
-        erl_common.Debug("Sending handshake:")
-        erl_common.HexDump(msg)
+        erl_common.Debug(M, "Sending handshake")
         self.Send(msg)
 
     def _SendPacket(self, packet):
         msg = self.PackInt4(len(packet)) + packet
-        erl_common.Debug("Sending msg:")
-        erl_common.HexDump(msg)
+        erl_common.Debug(M, "Sending msg")
         self.Send(msg)
-
-
-###
-###
-### Test code
-###
-###
-
-
-
-def __TestConnectOk():
-    print "ConnectOk"
-
-def __TestConnectFailed():
-    print "ConnectFailed"
-
-def __TestConnectionBroken():
-    print "ConnectionBroken"
-
-def __TestPassThroughMsg(controlMsg, msg=None):
-    print "passThrough:"
-    print "  controlMsg=%s" % `controlMsg`
-    print "  msg=%s" % `msg`
-
-def testmain(argv):
-    global e
-
-    try:
-        opts, args = getopt.getopt(argv[1:], "?n:c:d:f:")
-    except getopt.error, info:
-        print info
-        sys.exit(1)
-
-    hostName = "localhost"
-    ownNodeName = "py_interface_test"
-    cookie = "cookie"
-    ownDistrVersion = 5
-    ownFlags = 4
-
-    for (optchar, optarg) in opts:
-        if optchar == "-?":
-            print "Usage: %s [host] port" % argv[0]
-            sys.exit(1)
-        elif optchar == "-c":
-            cookie = optarg
-        elif optchar == "-n":
-            ownNodeName = optarg
-        elif optchar == "-d":
-            ownDistrVersion = string.atoi(optarg)
-        elif optchar == "-f":
-            ownFlags = string.atoi(optarg)
-
-    if len(args) >= 2:
-        hostName = args[0]
-        portNum = string.atoi(args[1])
-    elif len(args) >= 1:
-        portNum = string.atoi(args[0])
-    else:
-        sys.exit(1)
-
-    ownNodeName = erl_common.NodeNameMaybeAddHostName(ownNodeName)
-
-    print "Connecting to %s:%d"
-    print "  ownNodeName=\"%s\"" % ownNodeName
-    print "  cookie=\"%s\"" % cookie
-    print "  ownDistrVersion=%d" % ownDistrVersion
-    print "  ownFlags=%d" % ownFlags
-
-    c = ErlNodeOutConnection(ownNodeName, cookie, ownDistrVersion, ownFlags)
-    c.InitiateConnection(hostName, portNum,
-                         __TestConnectOk,
-                         __TestConnectFailed,
-                         __TestConnectionBroken,
-                         __TestPassThroughMsg)
-    evhandler = eventhandler.GetEventHandler()
-    evhandler.Loop()
-
-
-if __name__ == '__main__':
-    testmain(sys.argv)
-

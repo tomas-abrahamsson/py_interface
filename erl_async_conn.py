@@ -2,12 +2,12 @@ import socket
 import SOCKET
 
 import erl_common
-import eventhandler
+import erl_eventhandler
 
 
 class ErlAsyncPeerConnection:
     def __init__(self, openSocket=None):
-        self.evhandler = eventhandler.GetEventHandler()
+        self.evhandler = erl_eventhandler.GetEventHandler()
         if openSocket == None:
             self._Init()
         else:

@@ -4,13 +4,14 @@ import string
 import socket
 import getopt
 
-import common
 import erl_common
-import eventhandler
 import erl_async_conn
+import erl_eventhandler
 
 NODETYPE_NORMAL = 77
 NODETYPE_HIDDEN = 72
+
+M = "erl_epmd"
 
 class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
     _PORT_PLEASE_REQ = 112
@@ -30,33 +31,33 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def PortPleaseReq(self, nodeName, callback):
         msg = self.PackInt1(self._PORT_PLEASE_REQ) + nodeName
-        unpackcb = common.Callback(self._UnpackPortPleaseResp, callback)
+        unpackcb = erl_common.Callback(self._UnpackPortPleaseResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def PortPlease2Req(self, nodeName, callback):
         msg = self.PackInt1(self._PORT_PLEASE2_REQ) + nodeName
-        unpackcb = common.Callback(self._UnpackPortPlease2Resp, callback)
+        unpackcb = erl_common.Callback(self._UnpackPortPlease2Resp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def NamesReq(self, callback):
         msg = self.PackInt1(self._NAMES_REQ)
-        unpackcb = common.Callback(self._UnpackNamesResp, callback)
+        unpackcb = erl_common.Callback(self._UnpackNamesResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def DumpReq(self, callback):
         msg = self.PackInt1(self._DUMP_REQ)
-        unpackcb = common.Callback(self._UnpackDumpResp, callback)
+        unpackcb = erl_common.Callback(self._UnpackDumpResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def KillReq(self, callback):
         msg = self.PackInt1(self._KILL_REQ)
-        unpackcb = common.Callback(self._UnpackKillResp, callback)
+        unpackcb = erl_common.Callback(self._UnpackKillResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def StopReq(self, nodeName, callback):
         raise "Not used"
         msg = self.PackInt1(self._STOP_REQ) + nodeName
-        unpackcb = common.Callback(self._UnpackStopResp, callback)
+        unpackcb = erl_common.Callback(self._UnpackStopResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     ##
@@ -99,8 +100,6 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         cb(portNum)
 
     def _UnpackPortPlease2Resp(self, resp, cb):
-        print "PortPlease2Resp: resp:"
-        erl_common.HexDump(resp)
 
         if len(resp) == 2:
             result = self.ReadInt1(resp[1])
@@ -287,7 +286,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
             return (1, data[4:])
 
         currReqTxt = "current request is %s" % `self._GetCurrReqId()`
-        erl_common.DebugUnrecognizedMsg("EPMD, trown away "+currReqTxt, data)
+        erl_common.DebugHex(M, "unexpected msg, trown away, "+currReqTxt, data)
         return (0, "")
 
 
@@ -449,7 +448,7 @@ def main(argv):
     e.SetOwnPortNum(ownPortNum)
     e.SetOwnNodeName(ownNodeName)
     e.Connect(TestAlive2RespConnected, TestAlive2RespConnectFailed)
-    evhandler = eventhandler.GetEventHandler()
+    evhandler = erl_eventhandler.GetEventHandler()
     evhandler.Loop()
 
 

@@ -1,15 +1,13 @@
 import sys
 import types
 import string
-import getopt
 
 
 import erl_epmd
 import erl_term
 import erl_common
-import common
-import eventhandler
 import erl_node_conn
+import erl_eventhandler
 
 
 DISTR_FLAGS_PUBLISHED = 1;
@@ -18,6 +16,7 @@ DISTR_FLAGS_EXTENDEDREFERENCES = 4;
 DISTR_FLAGS_DISTMONITOR = 8;
 DISTR_FLAGS_FUNTAGS = 16;
 
+M = "erl_node"
 
 _pidCount = 1
 _serial = 0
@@ -30,7 +29,7 @@ class ErlMBox:
         self._msgCallback = msgCallback
         self._pid = pid
         self._pendingRPCs = {}
-        self._nodeDownCbs = {}
+        self._nodeDownSubscriptions = {}
 
     def Self(self):
         return self._pid
@@ -68,9 +67,9 @@ class ErlMBox:
 
         # Register a nodedown-callback for this node, so
         # we can call any rpc callbacks in case the node goes down
-        if not self._nodeDownCbs.has_key(remoteNodeName):
-            self._nodeDownCbs = self._node.NodeDownSubscribe(remoteNodeName,
-                                                             self._NodeDown)
+        if not self._nodeDownSubscriptions.has_key(remoteNodeName):
+            id = self._node.NodeDownSubscribe(remoteNodeName, self._NodeDown)
+            self._nodeDownSubscriptions[remoteNodeName] = id
 
         # Now send the rpc-message
         self.Send(("rex", remoteNode),
@@ -187,7 +186,7 @@ class ErlNode:
             self._ongoingPings[remoteNodeName] = [pingCallback]
             [nodeName, hostName] = string.split(remoteNodeName, "@")
             e = erl_epmd.ErlEpmd(hostName)
-            cb = common.Callback(self._PingEpmdResponse, remoteNodeName)
+            cb = erl_common.Callback(self._PingEpmdResponse, remoteNodeName)
             e.PortPlease2Req(nodeName, cb)
 
     def Publish(self):
@@ -320,8 +319,8 @@ class ErlNode:
                 # This is done by pinging with the ping-callback
                 # being a function that sends the message.
 
-                cb = common.Callback(self._SendMsgToRemoteNode,
-                                     sourcePid, destNode, destPid, msg)
+                cb = erl_common.Callback(self._SendMsgToRemoteNode,
+                                         sourcePid, destNode, destPid, msg)
                 destNodeName = destNode.atomText
                 self.Ping(destNodeName, cb)
             else:
@@ -354,7 +353,7 @@ class ErlNode:
         raise "Failed to connect to epmd (%d)" % errorResult
 
     def _NodeUp(self, connection, nodeName):
-        erl_common.Debug("NODEUP: nodeName=%s connection=%s" % \
+        erl_common.Debug(M, "NODEUP: nodeName=%s connection=%s" % \
                          (nodeName, connection))
         self._connections[nodeName] = connection
         if self._nodeUpCb.has_key(nodeName):
@@ -362,7 +361,7 @@ class ErlNode:
                 cb("nodeup", nodeName)
 
     def _NodeDown(self, connection, nodeName):
-        erl_common.Debug("NODENOWN: nodeName=%s connection=%s" % \
+        erl_common.Debug(M, "NODENOWN: nodeName=%s connection=%s" % \
                          (nodeName, connection))
         if self._connections.has_key(nodeName):
             del self._connections[nodeName]
@@ -384,14 +383,14 @@ class ErlNode:
                                                      self._cookie,
                                                      self._distrVersion,
                                                      self._distrFlags)
-            connectedOkCb = common.Callback(self._PingSucceeded,
-                                            out, remoteNodeName)
-            connectFailedCb = common.Callback(self._PingFailed,
-                                              out, remoteNodeName)
-            connectionBrokenCb = common.Callback(self._NodeDown,
-                                                 out, remoteNodeName)
-            passThroughMsgCb = common.Callback(self._PassThroughMsg,
-                                               out, remoteNodeName)
+            connectedOkCb = erl_common.Callback(self._PingSucceeded,
+                                                out, remoteNodeName)
+            connectFailedCb = erl_common.Callback(self._PingFailed,
+                                                  out, remoteNodeName)
+            connectionBrokenCb = erl_common.Callback(self._NodeDown,
+                                                     out, remoteNodeName)
+            passThroughMsgCb = erl_common.Callback(self._PassThroughMsg,
+                                                   out, remoteNodeName)
             out.InitiateConnection(otherHost, portNum,
                                    connectedOkCb,
                                    connectFailedCb,
@@ -416,7 +415,7 @@ class ErlNode:
             del self._connections[remoteNodeName]
 
     def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
-        erl_common.Debug("ctrlMsg=%s" % `ctrlMsg`)
+        erl_common.Debug(M, "ctrlMsg=%s" % `ctrlMsg`)
 
         ctrlMsgOp = ctrlMsg[0]
         if ctrlMsgOp == self.CTRLMSGOP_LINK:
@@ -427,12 +426,12 @@ class ErlNode:
             cookie = ctrlMsg[1]
             toPid = ctrlMsg[2]
             msg = msg
-            erl_common.Debug("SEND: msg=%s" % `msg`)
+            erl_common.Debug(M, "SEND: msg=%s" % `msg`)
             if self._pids.has_key(toPid):
                 mbox = self._pids[toPid]
                 mbox.Msg(remoteNodeName, msg)
             else:
-                erl_common.Debug("Got SEND with no dest pid: %s" % toPid)
+                erl_common.Debug(M, "Got SEND with no dest pid: %s" % toPid)
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
             fromPid = ctrlMsg[1]
             toPid = ctrlMsg[2]
@@ -455,7 +454,8 @@ class ErlNode:
                 mbox = self._pids[mboxPid]
                 mbox.Msg(remoteNodeName, msg)
             else:
-                erl_common.Debug("Got REG_SEND with no dest mbox: \"%s\": %s" %
+                erl_common.Debug(M,
+                                 "Got REG_SEND with no dest mbox: \"%s\": %s" %
                                  (toName, msg))
         elif ctrlMsgOp == self.CTRLMSGOP_GROUP_LEADER:
             fromPid = ctrlMsg[1]
@@ -507,7 +507,7 @@ class ErlNode:
             ref = ctrlMsg[3]
             pass
         else:
-            erl_common.Debug("Unknown controlmsg: %s" % `ctrlMsg`)
+            erl_common.Debug(M, "Unknown controlmsg: %s" % `ctrlMsg`)
 
     def _SendMsgToRemoteNode(self, pingResult, srcPid, destNode, destPid, msg):
         if pingResult != "pong":
@@ -522,53 +522,3 @@ class ErlNode:
         else:
             ctrlMsg = (self.CTRLMSGOP_SEND, cookie, destPid)
         conn.SendMsg(ctrlMsg, msg)
-
-
-###
-###
-###
-### TEST CODE
-###
-###
-
-def __TestMBoxCallback(msg):
-    print "msg=%s" % `msg`
-
-n=None
-m=None
-def testmain(argv):
-    try:
-        opts, args = getopt.getopt(argv[1:], "?n:c:")
-    except getopt.error, info:
-        print info
-        sys.exit(1)
-
-    hostName = "localhost"
-    ownNodeName = "py_interface_test"
-    cookie = "cookie"
-
-    for (optchar, optarg) in opts:
-        if optchar == "-?":
-            print "Usage: %s erlnode" % argv[0]
-            sys.exit(1)
-        elif optchar == "-c":
-            cookie = optarg
-        elif optchar == "-n":
-            ownNodeName = optarg
-
-    print "Creating node..."
-    n = ErlNode(ownNodeName, cookie)
-    print "Publishing node..."
-    n.Publish()
-    print "Creating mbox..."
-    m = n.CreateMBox(__TestMBoxCallback)
-    print "Registering mbox as p..."
-    m.RegisterName("p")
-
-    print "Looping..."
-    evhand = eventhandler.GetEventHandler()
-    evhand.Loop()
-
-
-if __name__ == '__main__':
-    testmain(sys.argv)

@@ -32,7 +32,7 @@ import types
 import string
 
 
-import common
+import erl_common
 import erl_common
 
 def ErlNumber(number):
