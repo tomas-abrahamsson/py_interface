@@ -29,6 +29,7 @@ class ErlMBox:
             msgCallback = self._Sink
         self._msgCallback = msgCallback
         self._pid = pid
+        self._pendingRPCs = {}
 
     def Self(self):
         return self._pid
@@ -48,12 +49,24 @@ class ErlMBox:
     def Unlink(self, otherEnd):
         pass
 
-    def SendRPC(self, remote_node, mod, fun, args, cb):
+    def SendRPC(self, remoteNode, mod, fun, args, cb):
         if type(mod) == types.StringType:
             mod = erl_term.ErlAtom(mod)
         if type(fun) == types.StringType:
             fun = erl_term.ErlAtom(fun)
-        self.Send(("rex", remote_node),
+
+        # Handle queue of pending callbacks for the remote node
+        if type(remoteNode) == types.StringType:
+            remoteNodeName = remoteNode
+        elif erl_term.IsErlAtom(remoteNode):
+            remoteNodeName = remoteNode.atomText
+        if self._pendingRPCs.has_key(remoteNodeName):
+            self._pendingRPCs[remoteNodeName].append(cb)
+        else:
+            self._pendingRPCs[remoteNodeName] = [cb]
+
+        # Now send the rpc-message
+        self.Send(("rex", remoteNode),
                   (self.Self(),
                    (erl_term.ErlAtom("call"),
                     mod, fun, args, erl_term.ErlAtom("user"))))
@@ -61,8 +74,26 @@ class ErlMBox:
     ##
     ## Routines to be called from the node only
     ##
-    def Msg(self, msg):
-        self._msgCallback(msg)
+    def Msg(self, sourceNodeName, msg):
+        if type(msg) == types.TupleType and \
+           len(msg) == 2 and \
+           erl_term.IsErlAtom(msg[0]) and \
+           msg[0].atomText == "rex"and \
+           len(self._pendingRPCs) > 0:
+            self._RPCAnswer(sourceNodeName, msg[1])
+        else:
+            self._msgCallback(msg)
+
+    def _RPCAnswer(self, sourceNodeName, answer):
+        # Does this assumption always hold:
+        # first answer is for first rpc-call?
+        # Maybe this holds for calls/answers for one single node.
+        # So the pendingRPCs is one queue per node.
+        if self._pendingRPCs.has_key(sourceNodeName):
+            pendingRPCs = self._pendingRPCs[sourceNodeName]
+            cb = pendingRPCs[0]
+            self._pendingRPCs[sourceNodeName] = pendingRPCs[1:]
+            cb(answer)
 
     def _Sink(self, *a, **kw):
         pass
@@ -338,7 +369,11 @@ class ErlNode:
             toPid = ctrlMsg[2]
             msg = msg
             erl_common.Debug("SEND: msg=%s" % `msg`)
-            pass
+            if self._pids.has_key(toPid):
+                mbox = self._pids[toPid]
+                mbox.Msg(remoteNodeName, msg)
+            else:
+                erl_common.Debug("Got SEND with no dest pid: %s" % toPid)
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
             fromPid = ctrlMsg[1]
             toPid = ctrlMsg[2]
@@ -359,7 +394,7 @@ class ErlNode:
             if self._registeredNames.has_key(toName):
                 mboxPid = self._registeredNames[toName]
                 mbox = self._pids[mboxPid]
-                mbox.Msg(msg)
+                mbox.Msg(remoteNodeName, msg)
             else:
                 erl_common.Debug("Got REG_SEND with no dest mbox: \"%s\": %s" %
                                  (toName, msg))
