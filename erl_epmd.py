@@ -13,7 +13,208 @@ NODETYPE_HIDDEN = 72
 
 M = "erl_epmd"
 
+class ErlEpmd:
+    """This class provides a connection to the Erlang Portmapper Daemon, EPMD.
+    """
+    def __init__(self, hostName="localhost", portNum=4369):
+        """Constructor.
+
+        HOST-NAME = string
+                    Default is "localhost"
+        PORT-NUM  = integer
+                    Default is 4369
+
+        Creates an instance for communicating with the EPMD on HOST-NAME
+        on PORT-NUM.
+        Use the Connect method to establish the actual connection to the EPMD.
+        """
+        self._hostName = hostName
+        self._portNum = portNum
+        self.connection = None
+
+    def SetOwnPortNum(self, ownPortNum):
+        """Specify the port number for the node
+
+        OWN-PORT-NUM = integer
+
+        Specify the port number for the socket that serves incoming
+        connections to the node. This is the portnumber to be published
+        to the EPMD. Other nodes looks up the nodes portnumber in the
+        EPMD, then establishes connections to that port.
+        """
+        self._ownPortNum = ownPortNum
+
+    def SetOwnNodeName(self, nodeName):
+        """Specify the node name for the node
+
+        NODE-NAME = string
+                    Must be on the form alivename@hostname
+
+        Sets the nodes name. This is the node name that is published in
+        the EPMD.
+        """
+        ## XXX Ought to change the scheme: get the host from the node-name
+        ##     instead of from an argument to the constructor?
+        self._ownNodeName = nodeName
+
+    def Connect(self, connectedCb, connectFailedCb):
+        """Connect to the EPMD and issue an Alive2 request.
+
+        CONNECTED-CB      = <function(CREATION): void>
+                            CREATION = integer
+        CONNECT-FAILED-CB = <function(RESULT): void>
+                            RESULT = integer
+
+        Connects to the EPMD specified in the constructor, then publishes
+        the own node name and port by issuing an Alive2 request.
+
+        The SetOwnPortNum and SetOwnNodeName methods must have been called
+        prior to calling this method.
+        """
+        self._connectedCb = connectedCb
+        self._connectFailedCb = connectFailedCb
+        self._epmdConn = ErlEPMDStdConnection()
+        if not self._epmdConn.Connect(self._hostName, self._portNum):
+            raise "Connection to EPMD failed"
+        self.Alive2Req(self._ownPortNum, NODETYPE_HIDDEN,
+                       (5, 5), self._ownNodeName, "", self._Alive2RespCb)
+
+    def Close(self):
+        """Close the connection to the EPMD."""
+        self.AliveCloseReq(self._AliveCloseSink)
+
+    ## Requests
+    ##
+
+    def AliveReq(self, portNum, nodeName, cb):
+        """Issue an Alive request.
+        PORT-NUM        = integer
+                          The port number of the socket that serves incoming
+                          connections to the node.
+        NODE-NAME       = string
+                          the name of the node (on the form alive@host)
+
+        This request has no callback.
+        """
+        self._epmdConn.AliveReq(portNum, nodeName, cb)
+
+    def Alive2Req(self, portNum, nodeType, distrVSNRange, nodeName, extra, cb):
+        """Issue an Alive2 request.
+        PORT-NUM        = integer
+                          The port number of the socket that serves incoming
+                          connections to the node.
+        NODE-TYPE       = integer
+        DISTR-VSN-RANGE = tuple(LO, HI)
+                          LO = HI = integer
+        NODE-NAME       = string
+                          the name of the node (on the form alive@host)
+        EXTRA           = string
+        CB              = <function(CREATION): void>
+                          CREATION = integer
+
+        Calls the callback CB when the answer is available.
+        See the file distribution_handshake.txt in the erlang distribution
+        for more info on the NODE-TYPE, DISTR-VSN-RANGE and EXTRA arguments.
+        """
+        self._epmdConn.Alive2Req(portNum, nodeType, distrVSNRange,
+                                 nodeName, extra, cb)
+
+    def AliveCloseReq(self, cb):
+        """Issue an AliveClose request.
+        CB = <function(): void>
+
+        This effectively closes the socket connection to the EPMD.
+        """
+        self._epmdConn.AliveCloseReq(cb)
+
+    def PortPleaseReq(self, nodeName, callback):
+        """Issue a PortPlease request.
+        NODE-NAME = string
+        CALLBACK  = <function(PORT-NUMBER): void>
+                    PORT-NUMBER = integer
+        Calls the CALLBACK function with argument PORT-NUMBER when
+        the answer is available.
+        """
+        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
+        e.PortPleaseReq(nodeName, callback)
+
+    def PortPlease2Req(self, nodeName, callback):
+        """Issue a PortPlease2 request.
+        NODE-NAME = string
+        CALLBACK  = <function(RESULT, NODE-TYPE, PROTOCOL, DISTR-VSN-RANGE,
+                              RNODE-NAME, EXTRA): void>
+                    RESULT = 1 | 0
+                    NODE-TYPE = integer
+                    PROTOCOL = integer
+                    DISTR-VSN-RANGE = tuple(LO, HI)
+                    LO = HI = integer
+                    RNODE-NAME = string
+                    EXTRA = string
+        Calls the CALLBACK function when the answer is available from the EPMD.
+        If the RESULT is 0, then the values of the rest of the arguments
+        are undefined. If the result is 1, then the rest of the arguments
+        have the values as reported from the EPMD.
+
+        Calls the CALLBACK function with argument PORT-NUMBER when
+        the answer is available.
+        """
+        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
+        e.PortPlease2Req(nodeName, callback)
+
+    def NamesReq(self, callback):
+        """Issue a Names request
+        CALLBACK = <function(EPMD-PORT-NUM, NODE-INFO): void
+                   EPMD-PORT-NUM = NODE-INFO = integer
+        Calls the CALLBACK when the answer is available.
+        """
+        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
+        e.NamesReq(callback)
+
+    def DumpReq(self, callback):
+        """Issue a Dump request
+        CALLBACK = <function(EPMD-PORT-NUM, NODE-INFO): void
+                   EPMD-PORT-NUM = NODE-INFO = integer
+        Calls the CALLBACK when the answer is available.
+        """
+        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
+        e.DumpReq(callback)
+
+    def KillReq(self, callback):
+        """Issue a Kill request
+        CALLBACK = <function(RESPONSE): void
+                   RESPONSE = string
+        Calls the CALLBACK when the answer is available.
+        """
+        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
+        e.KillReq(callback)
+
+    def StopReq(self, nodeName, callback):
+        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
+        e.StopReq(callback)
+
+    ##
+    ## Internal routines
+    ##
+
+    def _Alive2RespCb(self, result, creation):
+        if result == 0:
+            # ok:
+            self._connectedCb(creation)
+        else:
+            self._connectFailedCb(result)
+
+    def _AliveCloseSink(self):
+        pass
+
 class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
+    """This class is intended to be used by the instances of the ErlEPMD class.
+
+    This class handles one-shot connections to the Erlang Portmapper
+    Daemon, EPMD. All requests except ALIVE and ALIVE2 result in one-shot
+    connections to the EPMD, meaning that a new TCP/IP connection is set
+    up for the request, and then teared down when the answer has arrived.
+    """
+
     _PORT_PLEASE_REQ = 112
     _PORT_PLEASE2_REQ = 122
     _NAMES_REQ = 110
@@ -23,6 +224,13 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
     _PORT2_RESP = 119
 
     def __init__(self, hostName, portNum):
+        """Constructor
+        HOST-NAME = string
+                    The host to connect to
+        PORT-NUM  = integer
+                    The port number for the EPMD.
+        Set up an object for a one-shot connection to host:port.
+        """
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
         self._recvdata = ""
         self._oneShotCallback = None
@@ -30,26 +238,67 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         self._portNum = portNum
 
     def PortPleaseReq(self, nodeName, callback):
+        """Issue a PortPlease request.
+        NODE-NAME = string
+        CALLBACK  = <function(PORT-NUMBER): void>
+                    PORT-NUMBER = integer
+        Calls the CALLBACK function with argument PORT-NUMBER when
+        the answer is available.
+        """
         msg = self.PackInt1(self._PORT_PLEASE_REQ) + nodeName
         unpackcb = erl_common.Callback(self._UnpackPortPleaseResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def PortPlease2Req(self, nodeName, callback):
+        """Issue a PortPlease2 request.
+        NODE-NAME = string
+        CALLBACK  = <function(RESULT, NODE-TYPE, PROTOCOL, DISTR-VSN-RANGE,
+                              RNODE-NAME, EXTRA): void>
+                    RESULT = 1 | 0
+                    NODE-TYPE = integer
+                    PROTOCOL = integer
+                    DISTR-VSN-RANGE = tuple(LO, HI)
+                    LO = HI = integer
+                    RNODE-NAME = string
+                    EXTRA = string
+        Calls the CALLBACK function when the answer is available from the EPMD.
+        If the RESULT is 0, then the values of the rest of the arguments
+        are undefined. If the result is 1, then the rest of the arguments
+        have the values as reported from the EPMD.
+
+        Calls the CALLBACK function with argument PORT-NUMBER when
+        the answer is available.
+        """
         msg = self.PackInt1(self._PORT_PLEASE2_REQ) + nodeName
         unpackcb = erl_common.Callback(self._UnpackPortPlease2Resp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def NamesReq(self, callback):
+        """Issue a Names request
+        CALLBACK = <function(EPMD-PORT-NUM, NODE-INFO): void
+                   EPMD-PORT-NUM = NODE-INFO = integer
+        Calls the CALLBACK when the answer is available.
+        """
         msg = self.PackInt1(self._NAMES_REQ)
         unpackcb = erl_common.Callback(self._UnpackNamesResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def DumpReq(self, callback):
+        """Issue a Dump request
+        CALLBACK = <function(EPMD-PORT-NUM, NODE-INFO): void
+                   EPMD-PORT-NUM = NODE-INFO = integer
+        Calls the CALLBACK when the answer is available.
+        """
         msg = self.PackInt1(self._DUMP_REQ)
         unpackcb = erl_common.Callback(self._UnpackDumpResp, callback)
         self._SendOneShotReq(msg, unpackcb)
 
     def KillReq(self, callback):
+        """Issue a Kill request
+        CALLBACK = <function(RESPONSE): void
+                   RESPONSE = string
+        Calls the CALLBACK when the answer is available.
+        """
         msg = self.PackInt1(self._KILL_REQ)
         unpackcb = erl_common.Callback(self._UnpackKillResp, callback)
         self._SendOneShotReq(msg, unpackcb)
@@ -100,7 +349,6 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         cb(portNum)
 
     def _UnpackPortPlease2Resp(self, resp, cb):
-
         if len(resp) == 2:
             result = self.ReadInt1(resp[1])
             cb(result, None, None, None, None, None, None)
@@ -140,12 +388,20 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
 class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
+    """This class is intended to be used by the instances of the ErlEPMD class.
+
+    This class provides a long-lasting connection to the Erlang Portmapper
+    Daemon, EPMD. This type of connection is used for ALIVE and ALIVE2
+    requests, where the connection is expected to live as long as the
+    node is alive.
+    """
     _ALIVE_REQ = 97
     _ALIVE2_REQ = 120
     _ALIVE_OK_RESP = 89
     _ALIVE2_RESP = 121
 
     def __init__(self):
+        """Constructor."""
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
         self._currentRequests = []
         self._pendingInput = ""
@@ -155,6 +411,23 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
     ##
 
     def Alive2Req(self, portNum, nodeType, distrVSNRange, nodeName, extra, cb):
+        """Issue an Alive2 request.
+        PORT-NUM        = integer
+                          The port number of the socket that serves incoming
+                          connections to the node.
+        NODE-TYPE       = integer
+        DISTR-VSN-RANGE = tuple(LO, HI)
+                          LO = HI = integer
+        NODE-NAME       = string
+                          the name of the node (on the form alive@host)
+        EXTRA           = string
+        CB              = <function(CREATION): void>
+                          CREATION = integer
+
+        Calls the callback CB when the answer is available.
+        See the file distribution_handshake.txt in the erlang distribution
+        for more info on the NODE-TYPE, DISTR-VSN-RANGE and EXTRA arguments.
+        """
         aliveName = string.split(nodeName, "@")[0]
         msg = (self.PackInt1(self._ALIVE2_REQ) +
                self.PackInt2(portNum) +
@@ -168,12 +441,26 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
     def AliveReq(self, portNum, nodeName):
+        """Issue an Alive request.
+        PORT-NUM        = integer
+                          The port number of the socket that serves incoming
+                          connections to the node.
+        NODE-NAME       = string
+                          the name of the node (on the form alive@host)
+
+        This request has no callback.
+        """
         msg = (self.PackInt1(self._ALIVE_REQ) +
                self.PackInt2(portNum) +
                nodeName)
         self._SendReq(msg, cb)
 
     def AliveCloseReq(self, cb):
+        """Issue an AliveClose request.
+        CB = <function(): void>
+
+        This effectively closes the socket connection to the EPMD.
+        """
         self.Close()
         cb()
 
@@ -288,170 +575,3 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
         currReqTxt = "current request is %s" % `self._GetCurrReqId()`
         erl_common.DebugHex(M, "unexpected msg, trown away, "+currReqTxt, data)
         return (0, "")
-
-
-class ErlEpmd:
-    def __init__(self, hostName="localhost", portNum=4369):
-        self._hostName = hostName
-        self._portNum = portNum
-        self.connection = None
-
-    def SetOwnPortNum(self, ownPortNum):
-        self._ownPortNum = ownPortNum
-
-    def SetOwnNodeName(self, nodeName):
-        self._ownNodeName = nodeName
-
-    def Connect(self, connectedCb, connectFailedCb):
-        self._connectedCb = connectedCb
-        self._connectFailedCb = connectFailedCb
-        self._epmdConn = ErlEPMDStdConnection()
-        if not self._epmdConn.Connect(self._hostName, self._portNum):
-            raise "Connection to EPMD failed"
-        self.Alive2Req(self._ownPortNum, NODETYPE_HIDDEN,
-                       (5, 5), self._ownNodeName, "", self._Alive2RespCb)
-
-    def Close(self):
-        self.AliveCloseReq()
-
-    ## Requests
-    ##
-
-    def AliveReq(self, portNum, nodeName, cb):
-        self._epmdConn.AliveReq(portNum, nodeName, cb)
-
-    def Alive2Req(self, portNum, nodeType, distrVSNRange, nodeName, extra, cb):
-        self._epmdConn.Alive2Req(portNum, nodeType, distrVSNRange,
-                                 nodeName, extra, cb)
-
-    def AliveCloseReq(self, cb):
-        self._epmdConn.AliveCloseReq(cb)
-
-    def PortPleaseReq(self, nodeName, callback):
-        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
-        e.PortPleaseReq(nodeName, callback)
-
-    def PortPlease2Req(self, nodeName, callback):
-        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
-        e.PortPlease2Req(nodeName, callback)
-
-    def NamesReq(self, callback):
-        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
-        e.NamesReq(callback)
-
-    def DumpReq(self, callback):
-        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
-        e.DumpReq(callback)
-
-    def KillReq(self, callback):
-        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
-        e.KillReq(callback)
-
-    def StopReq(self, nodeName, callback):
-        e = ErlEPMDOneShotConnection(self._hostName, self._portNum)
-        e.StopReq(callback)
-
-    ##
-    ## Internal routines
-    ##
-
-    def _Alive2RespCb(self, result, creation):
-        if result == 0:
-            # ok:
-            self._connectedCb(creation)
-        else:
-            self._connectFailedCb(result)
-
-e = None
-
-def TestAliveOkResp(creation):
-    print "AliveOkResp creation=%d" % creation
-
-def TestAliveNotOkResp(self):
-    print "AliveNotOkResp"
-
-def TestAlive2Resp(result, creation):
-    print "Alive2Resp, result=%d, creation=%d" % (result, creation)
-
-def TestAlive2RespConnected(creation):
-    print "Alive2RespConnected, creation=%d" % creation
-    nodeToCheckFor = "flerp"
-    print "Checking for node named \"%s\"." % nodeToCheckFor
-    e.PortPlease2Req(nodeToCheckFor, TestPort2Resp)
-
-def TestAlive2RespConnectFailed(result):
-    print "Alive2RespConnectFailed, result=%d" % result
-
-def TestPortOkResp(portNum):
-    print "PortOkResp, portNum=%d" % portNum
-
-def TestPortNotOkResp(self):
-    print "PortNotOkResp"
-
-def TestPort2Resp(result, portNum, nodeType, proto, distr, nodeName, extra):
-    if result == 0:
-        # found
-        print ("Port2Resp, result=ok, portNum=%d, nodeType=%d, protocol=%d," +
-               " distrVSNRange=%s, nodeName=\"%s\", extra=\"%s\"") % \
-               (portNum, nodeType, proto, `distr`, nodeName, extra)
-    else:
-        # not found
-        print "Port2Resp, result=%d" % result
-        
-
-def TestNamesResp(epmdPortNum, nodeInfo):
-    print "NamesResp, epmdPortNum=%d nodeInfo:\n%s" % \
-          (epmdPortNum, nodeInfo)
-
-def TestDumpResp(epmdPortNum, nodeInfo):
-    print "DumpResp, epmdPortNum=%d nodeInfo:\n%s" % \
-          (epmdPortNum, nodeInfo)
-
-def TestKillResp(resp):
-    print "KillResp, resp=%s" % resp
-
-def TestStopResp(resp):
-    print "StopResp, resp=%s" % resp
-
-def TestConnectionClosed():
-    print "Connection to epmd has been closed."
-
-def main(argv):
-    global e
-
-    try:
-        opts, args = getopt.getopt(argv[1:], "?p:n:")
-    except getopt.error, info:
-        print info
-
-    hostName = "localhost"
-    portNum = 4369
-    ownPortNum = 1234
-    ownNodeName = "py_interface_test"
-
-    for (optchar, optarg) in opts:
-        if optchar == "-?":
-            print "Usage: %s host [port]" % argv[0]
-            sys.exit(1)
-        elif optchar == "-p":
-            ownPortNum = string.atoi(optarg)
-        elif optchar == "-n":
-            ownNodeName = optarg
-
-    if len(args) >= 2:
-        hostName = args[0]
-        portNum = string.atoi(args[1])
-    elif len(args) == 1:
-        hostName = args[0]
-
-    e = ErlEpmd(hostName, portNum)
-    e.SetOwnPortNum(ownPortNum)
-    e.SetOwnNodeName(ownNodeName)
-    e.Connect(TestAlive2RespConnected, TestAlive2RespConnectFailed)
-    evhandler = erl_eventhandler.GetEventHandler()
-    evhandler.Loop()
-
-
-if __name__ == '__main__':
-    main(sys.argv)
-
