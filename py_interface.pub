@@ -2,29 +2,8 @@
 {name, "py_interface"}.
 {vsn, {0,92}}.
 {summary, "The py_interface is a Python-implementation of an Erlang node."}.
-{author, "Tomas Abrahamsson", "tab@lysator.liu.se", "2002-may-29"}.
+{author, "Tomas Abrahamsson", "tab@lysator.liu.se", "2004-jul-13"}.
 {keywords, ["Python", "node"]}.
 {needs, []}.
-{abstract,"The py_interface provides the possibility to create a node 
-that may be used for communication with other Erlang nodes.
-
-Some characteristics:
-* The Python nodes are hidden, like the Java nodes
-* The Python node supports
-  - registering the Python node in the epmd
-  - sending and receiving message
-  - executing remote procedure calls (the rpc:call(M,F,A) mechanism)
-* The Python node does currently _not_ do:
-  - linking
-  - tracing
-* The Python node translates Erlang types to Python types as far as
-  there is a reasonable Python counterpart. If there is not, then
-  a class is used.
-* The Python node is a single threaded callback-driven process.
-* The Python node is released under LGPL, see the file COPYING.LIB.
-* The Python node runs on Python 1.5 -- Python 2.2. It
-  can talk to Erlang R7 and R8 nodes, as far as I know.
-* The source of information for this Python node has been the files
-  `distribution_handshake.txt' and `erl_ext_dist.txt' together with
-  the Java node source files, the `net_kernel.erl' and the
-  `dist_util.erl' files in the Erlang source code distribution."}.
+{abstract,"The py_interface provides the possibility to run a python node
+that may be used for communication with other Erlang nodes."}.

@@ -1,13 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(erl_node.py erl_async_conn.py erl_common.py erl_epmd.py \
-        erl_eventhandler.py erl_node_conn.py erl_opts.py erl_term.py \
-        test_erl_epmd.py \
-        test_erl_node.py \
-        test_erl_node_conn.py \
-        test_erl_node_tk_1.py)
+AC_INIT()
 
 AC_PROG_INSTALL()
 
 AC_CHECK_PROGS(PYTHON, python)
+
+AC_CHECK_PROGS(ERL, erl)
+AC_CHECK_PROGS(ERLC, erlc)
 
 AC_OUTPUT(Makefile)

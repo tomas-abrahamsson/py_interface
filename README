@@ -27,8 +27,8 @@ Some characteristics:
   a class is used.
 * The Python node is a single threaded callback-driven process.
 * The Python node is released under LGPL, see the file COPYING.LIB.
-* The Python node runs on Python 1.5 -- Python 2.2. It
-  can talk to Erlang R7 and R8 nodes, as far as I know.
+* The Python node runs on Python 1.5 -- Python 2.3. It
+  can talk to Erlang R7 -- R9 nodes, as far as I know.
 * The source of information for this Python node has been the files
   `distribution_handshake.txt' and `erl_ext_dist.txt' together with
   the Java node source files, the `net_kernel.erl' and the
@@ -47,6 +47,10 @@ out.
 The easiest way to get acquainted with the Python node, check out the
 test programs:
 
+* run_test_erl_node_pingping.sh
+  This tests communication, packing and unpacking of terms,
+  and show how to start the nodes.
+
 * test_erl_node_tk_1.py
   This brings up a window in which you can select
   to send a message or to make an rpc-call.
@@ -64,3 +68,4 @@ Contacting the author
 ---------------------
 To contact the author, Tomas Abrahamsson: send a mail to:
 tab@lysator.liu.se
+

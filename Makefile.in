@@ -23,6 +23,7 @@ tar=tar
 
 srcdir = @srcdir@
 VPATH = @srcdir@
+ERLC = @ERLC@
 
 SOURCES = erl_node.py \
           erl_node_conn.py \
@@ -36,9 +37,13 @@ SOURCES = erl_node.py \
 TESTPROGRAMS = test_erl_epmd.py \
                test_erl_node.py \
                test_erl_node_conn.py \
-               test_erl_node_tk_1.py
+               test_erl_node_tk_1.py \
+               test_erl_node_pingpong.py \
+               test_erl_node_pingpong.erl \
+               run_test_erl_node_pingpong.sh
 
-OBJECTS = 
+OBJECTS = test_erl_node_pingpong.beam
+
 
 DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
         py_interface.pub \
@@ -49,18 +54,14 @@ DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
 SHELL = /bin/sh
 #.PHONY: all clean dist distclean install \
 #	installdirs ps uninstall
-.SUFFIXES:
+.SUFFIXES: .beam .erl .py
+
+%.beam:	%.erl
+	$(ERLC) $*.erl
 
 all: $(OBJECTS)
 
 install: all installdirs
-
-#	  for f in $(ELISP_SOURCES); do \
-#	    $(INSTALL_DATA) $(srcdir)/$$f $(lispdir); \
-#	  done;
-#	  for f in $(ELISP_OBJECTS); do \
-#	    $(INSTALL_DATA) $$f $(lispdir); \
-#	  done;
 
 # Make sure all installation directories actually exist
 # by making them if necessary.
@@ -81,6 +82,7 @@ clean:
 	-rm -f *.html
 	rm -f TAGS
 	rm -f erl_crash.dump
+	rm -f *.beam
 
 distclean: clean
 	-rm -f *~ *.tar.gz
