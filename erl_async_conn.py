@@ -18,7 +18,6 @@ class ErlAsyncPeerConnection:
     def Close(self):
         if not self._isConnected:
             return
-        self._connection.close()
         self._SetConnectionClosed()
 
     
@@ -44,6 +43,7 @@ class ErlAsyncPeerConnection:
     def _SetConnectionClosed(self):
         if self._isConnected:
             self.evhandler.PopReadEvent(self._connection)
+            self._connection.close()
             self._connection = None
             self._isConnected = 0
             self._Init()

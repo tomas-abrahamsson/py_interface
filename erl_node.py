@@ -1,14 +1,13 @@
 import sys
 import types
 import string
-import socket
-import random
 import getopt
 
 
 import erl_epmd
 import erl_term
 import erl_common
+import common
 import eventhandler
 import erl_node_conn
 
@@ -48,6 +47,13 @@ class ErlMBox:
 
     def Unlink(self, otherEnd):
         pass
+
+    def SendRPC(self, remote_node, mod, fun, args, cb):
+        self.Send(("rex", remote_node),
+                  (erl_term.ErlAtom(mod),
+                   erl_term.ErlAtom(fun),
+                   args,
+                   erl_term.ErlAtom("user")))
 
 
     ##
@@ -128,8 +134,8 @@ class ErlNode:
         else:
             self._ongoingPings[remoteNodeName] = [pingCallback]
             [nodeName, hostName] = string.split(remoteNodeName, "@")
-            e = epmd(hostName)
-            cb = common.VCallback(self._PingEpmdResonse, remoteNodeName)
+            e = erl_epmd.ErlEpmd(hostName)
+            cb = common.Callback(self._PingEpmdResponse, remoteNodeName)
             e.PortPlease2Req(nodeName, cb)
 
     def Publish(self):
@@ -165,7 +171,29 @@ class ErlNode:
 
 
     def SendMsgFromMBox(self, sourceMBox, dest, msg):
+        ## Possible dest types:
+        ## - A tuple: (registered_name, node_name)
+        ## - An atom: registered_name
+        ## - A pid:   <erlpid ...>  (note: the pid contains the pid's node)
+
         sourcePid = self._mboxes[sourceMBox]
+
+        ## First check for strings in the dest argument.
+        ## Convert any strings to to atoms.
+        if type(dest) == types.StringType:
+            dest = erl_term.ErlAtom(dest)
+        elif type(dest) == types.TupleType:
+            destPidName = dest[0]
+            destNode = dest[1]
+            if type(destPidName) == types.StringType:
+                destPidName = erl_term.ErlAtom(destPidName)
+            if type(destNode) == types.StringType:
+                destNode = erl_term.ErlAtom(destNode)
+            dest = (destPidName, destNode)
+
+        ## Then split the dest into:
+        ##    destPid/destPidName   and   destNode
+        ## depending on its type.
         if type(dest) == types.TupleType:
             destPid = dest[0]
             destNode = dest[1]
@@ -178,7 +206,10 @@ class ErlNode:
         elif erl_term.IsErlPid(dest):
             destPid = dest
             destNode = dest.node
+        else:
+            return
 
+        ## Now do the sending...
         if destNode == self:
             if not self._registeredPids.has_key(destPid):
                 return
@@ -189,14 +220,16 @@ class ErlNode:
             self.Publish()
             if not self._connections.has_key(destNode):
                 # We don't have a connection to the destination
-                # We must fix open a connection.
-                # This is done by perforing a ping
-                # with the ping-callback being a function that
-                # sends the message.
-                cb = common.VCallback(self, _SendMsgToRemoteNode,
-                                      sourcePid, destNode, destPid, msg)
-                self.Ping(destNode, cb)
+                # We must open a connection.
+                # This is done by pinging with the ping-callback
+                # being a function that sends the message.
+
+                cb = common.Callback(self._SendMsgToRemoteNode,
+                                     sourcePid, destNode, destPid, msg)
+                destNodeName = destNode.atomText
+                self.Ping(destNodeName, cb)
             else:
+                ## We have contact with the remote node. Send at once!
                 self._SendMsgToRemoteNode("pong",
                                           sourcePid, destNode, destPid, msg)
 
@@ -244,24 +277,25 @@ class ErlNode:
             out = erl_node_conn.ErlNodeOutConnection(self._nodeName,
                                                      self._cookie,
                                                      self._distrVersion,
-                                                     self._flags)
-            connectedCb = common.VCallback(self._PingSucceeded,
-                                           out, remoteNodeName)
-            connectFailedCb = common.VCallback(self._PingFailed,
+                                                     self._distrFlags)
+            connectedOkCb = common.Callback(self._PingSucceeded,
+                                            out, remoteNodeName)
+            connectFailedCb = common.Callback(self._PingFailed,
+                                              out, remoteNodeName)
+            connectionBrokenCb = common.Callback(self._OutConnectionBroken,
+                                                 out, remoteNodeName)
+            passThroughMsgCb = common.Callback(self._PassThroughMsg,
                                                out, remoteNodeName)
-            connectionBrokenCb = common.VCallback(self._OutConnectionBroken,
-                                                  out, remoteNodeName)
-            passThroughMsgCb = common.VCallback(self._PassThroughMsg,
-                                                out, remoteNodeName)
             out.InitiateConnection(otherHost, portNum,
                                    connectedOkCb,
                                    connectFailedCb,
-                                   connectionBrokenCb)
+                                   connectionBrokenCb,
+                                   self._PassThroughMsg)
 
     def _PingSucceeded(self, connection, remoteNodeName):
         callbacks = self._ongoingPings[remoteNodeName]
         del self._ongoingPings[remoteNodeName]
-        self.connections[remoteNodeName] = connection
+        self._connections[remoteNodeName] = connection
         for cb in callbacks:
             cb("pong")
 
@@ -272,8 +306,8 @@ class ErlNode:
             cb("pang")
         
     def _OutConnectionBroken(self, connection, remoteNodeName):
-        if self.connections.has_key(remoteNodeName):
-            del self.connections[remoteNodeName]
+        if self._connections.has_key(remoteNodeName):
+            del self._connections[remoteNodeName]
 
     def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
         erl_common.Debug("ctrlMsg=%s" % `ctrlMsg`)
@@ -309,7 +343,9 @@ class ErlNode:
                 mboxPid = self._registeredNames[toName]
                 mbox = self._pids[mboxPid]
                 mbox.Msg(msg)
-            pass
+            else:
+                erl_common.Debug("Got REG_SEND with no dest mbox: \"%s\": %s" %
+                                 (toName, msg))
         elif ctrlMsgOp == self.CTRLMSGOP_GROUP_LEADER:
             fromPid = ctrlMsg[1]
             toPid = ctrlMsg[2]
@@ -362,18 +398,21 @@ class ErlNode:
         else:
             erl_common.Debug("Unknown controlmsg: %s" % `ctrlMsg`)
 
-    def _SendMsgToRemoteNode(pingResult, sourcePid, destNode, destPid, msg):
+    def _SendMsgToRemoteNode(self, pingResult, srcPid, destNode, destPid, msg):
         if pingResult != "pong":
             return
-        if not self._connections.has_key(destNode):
+        destNodeName = destNode.atomText
+        if not self._connections.has_key(destNodeName):
             return
-        conn = self._connections[destNode]
+        conn = self._connections[destNodeName]
         cookie = erl_term.ErlAtom("")
-        if erl_term.IsAtom(destPid):
-            ctrlMsg = (self.CTRLMSGOP_REG_SEND, sourcePid, cookie, destPid)
+        if erl_term.IsErlAtom(destPid):
+            ctrlMsg = (self.CTRLMSGOP_REG_SEND, srcPid, cookie, destPid)
         else:
             ctrlMsg = (self.CTRLMSGOP_SEND, cookie, destPid)
         conn.SendMsg(ctrlMsg, msg)
+        print "ctrlMsg=%s" % `ctrlMsg`
+        print "    msg=%s" % `msg`
 
 
 ###

@@ -56,7 +56,7 @@ class ErlAtom:
         return "<erl-atom: %s>" % `self.atomText`
 
 def IsErlAtom(term):
-    return type(term) == types.ClassType and isinstance(term, ErlAtom)
+    return type(term) == types.InstanceType and isinstance(term, ErlAtom)
 
 
             
@@ -70,7 +70,7 @@ class ErlRef:
                (`self.node`, self.id, self.creation)
 
 def IsErlRef(term):
-    return type(term) == types.ClassType and isinstance(term, ErlRef)
+    return type(term) == types.InstanceType and isinstance(term, ErlRef)
 
 
 class ErlPort:
@@ -83,7 +83,7 @@ class ErlPort:
                (`self.node`, self.id, self.creation)
 
 def IsErlPort(term):
-    return type(term) == types.ClassType and isinstance(term, ErlPort)
+    return type(term) == types.InstanceType and isinstance(term, ErlPort)
 
 class ErlPid:
     def __init__(self, node, id, serial, creation):
@@ -96,7 +96,7 @@ class ErlPid:
                (`self.node`, self.id, self.serial, self.creation)
 
 def IsErlPid(term):
-    return type(term) == types.ClassType and isinstance(term, ErlPid)
+    return type(term) == types.InstanceType and isinstance(term, ErlPid)
 
 def ErlTuple(elementsAsList):
     return tuple(elementsAsList)
@@ -111,7 +111,7 @@ class ErlBinary:
         return "<erl-binary: size=%d>" % len(self._contents)
 
 def IsErlBinary(term):
-    return type(term) == types.ClassType and isinstance(term, ErlBinary)
+    return type(term) == types.InstanceType and isinstance(term, ErlBinary)
 
 def ErlString(s):
     return s
@@ -130,7 +130,7 @@ class ErlFun:
 
 
 def IsErlFun(term):
-    return type(term) == types.ClassType and isinstance(term, ErlFun)
+    return type(term) == types.InstanceType and isinstance(term, ErlFun)
 
 ###
 ### UNPACKING
@@ -390,9 +390,6 @@ def _UnpackTermSeq(numTerms, data):
         remainingData = newRemainingData
     return (seq, remainingData)
 
-def _PackOneTerm(term):
-    pass
-
 def _ReadId(s, maxSignificantBits = 18):
     return _ReadInt4(s) & ((1 << maxSignificantBits) - 1)
 
@@ -414,6 +411,9 @@ def _ReadInt4(s):
 ### PACKING
 ###
 def TermToBinary(term):
+    return chr(131) + _PackOneTerm(term)
+
+def _PackOneTerm(term):
     if type(term) == types.StringType:
         return _PackString(term)
     elif type(term) == types.ListType:
@@ -439,6 +439,7 @@ def TermToBinary(term):
     elif IsErlFun(term):
         return _PackFun(term)
     else:
+        print "Term=%s" % `term`
         raise "Can't pack value of type %s" % `type(term)`
 
     
@@ -506,7 +507,8 @@ def _PackInt(term):
         return _PackInt1(98) + _PackInt4(term)
 
 def _PackAtom(term):
-    pass
+    atomText = term.atomText
+    return _PackInt1(100) + _PackInt2(len(atomText)) + atomText
 
 def _PackRef(term):
     if type(term.id) == types.ListType:

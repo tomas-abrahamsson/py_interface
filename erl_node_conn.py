@@ -165,6 +165,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             if CheckDigest(digest, self._challengeToPeer, self._cookie):
                 self._packetLenSize = 4
                 self._state = self._STATE_CONNECTED
+                self._connectOkCb()
             else:
                 erl_common.Debug("Connection attempt to disallowed node %s" %
                                  self._peerName)
@@ -209,8 +210,6 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def _SendChallengeReply(self, challenge):
         digest = GenDigest(challenge, self._cookie)
-        print "challenge = %s cookie = %s ==> digest = %s" % \
-              (`challenge`, self._cookie, `map(lambda x: ord(x), digest)`)
         challengeToPeer = GenChallenge()
         self._challengeToPeer = challengeToPeer
         packet = "r" + self.PackInt4(challengeToPeer) + digest

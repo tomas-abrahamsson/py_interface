@@ -117,7 +117,16 @@ class VCallback:
         self.namedArgs = namedArgs
 
     def __call__(self, *extraArgs):
-        return apply(self.callback, extraArgs + self.optArgs, self.namedArgs)
+        try:
+            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Error in VCallback %s" % self.__repr__()
+            print "  extraArgs=%s" % `extraArgs`
+            print "  self.optArgs=%s" % `self.optArgs`
+            print "  self.namedArgs=%s" % `self.namedArgs`
+            raise
 
     def __repr__(self):
         return "<VCallback to %s>" % `self.callback`
@@ -129,4 +138,13 @@ class Callback:
         self.namedArgs = namedArgs
 
     def __call__(self, *extraArgs):
-        return apply(self.callback, extraArgs + self.optArgs, self.namedArgs)
+        try:
+            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Error in VCallback %s" % self.__repr__()
+            raise
+            
+    def __repr__(self):
+        return "<Callback to %s>" % `self.callback`

@@ -49,15 +49,34 @@ def GetEventHandler():
 
 def SetEventHandlerStateTk(top):
     evhandler = GetEventHandler()
-    evhandler.SetStateTk(top)
+    evhandler._SetStateTk(top)
 
 def SetEventHandlerStateStandalone():
     evhandler = GetEventHandler()
-    evhandler.SetStateStandAlone()
+    evhandler._SetStateStandAlone()
 
 ###
 ### End of API
 ### ---------------------------------------------------
+
+class EVCallback:
+    def __init__(self, callback, optArgs, namedArgs):
+        self.callback = callback
+        self.optArgs = optArgs
+        self.namedArgs = namedArgs
+
+    def __call__(self, *extraArgs):
+        try:
+            return apply(self.callback, self.optArgs, self.namedArgs)
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Error in EVCallback %s" % self.__repr__()
+            raise
+
+    def __repr__(self):
+        return "<VCallback to %s>" % `self.callback`
+
 
 _nextTimerId = 0
 def GetNewTimerId():
@@ -116,7 +135,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def PushReadEvent(self, connection, cbfunction, *optArgs, **namedArgs):
-        cb = common.VCallback(cbfunction, optArgs, namedArgs)
+        cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.readEvents.has_key(connection):
             handlers = self.readEvents[connection]
         else:
@@ -139,7 +158,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def PushWriteEvent(self, connection, cbfunction, *optArgs, **namedArgs):
-        cb = common.VCallback(cbfunction, optArgs, namedArgs)
+        cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.writeEvents.has_key(connection):
             handlers = self.writeEvents[connection]
         else:
@@ -161,7 +180,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def PushExceptEvent(self, connection, cbfunction, *optArgs, **namedArgs):
-        cb = common.VCallback(cbfunction, optArgs, namedArgs)
+        cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.exceptEvents.has_key(connection):
             handlers = self.exceptEvents[connection]
         else:
@@ -183,7 +202,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def AddTimerEvent(self, timeLeft, cbfunction, *optArgs, **namedArgs):
-        cb = common.VCallback(cbfunction, optArgs, namedArgs)
+        cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.state == self.STATE_STANDALONE:
             newTimerEvent = _TimerEvent(timeLeft, cb)
             self.timerEvents.append(newTimerEvent)
@@ -292,13 +311,13 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
     def _TkPushFileHandler(self, eventType, connection):
         fileNum = connection.fileno()
         if eventType == self.READ:
-            cb = readEvents[connection][0]
+            cb = self.readEvents[connection][0]
             tkinter.createfilehandler(fileNum, tkinter.READABLE, cb)
         elif eventType == self.WRITE:
-            cb = writeEvents[connection][0]
+            cb = self.writeEvents[connection][0]
             tkinter.createfilehandler(fileNum, tkinter.WRITABLE, cb)
         elif eventType == self.EXCEPT:
-            cb = exceptEvents[connection][0]
+            cb = self.exceptEvents[connection][0]
             tkinter.createfilehandler(fileNum, tkinter.EXCEPTION, cb)
 
     def _TkPopFileHandler(self, eventType, connection):
@@ -317,4 +336,3 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         if self.exceptEvents.has_key(connection):
             cb = self.exceptEvents[connection][0]
             tkinter.createfilehandler(fileNum, tkinter.EXCEPTION, cb)
-
