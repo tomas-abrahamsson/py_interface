@@ -397,7 +397,7 @@ class ErlNode:
           "pang": the remote node is down.
         """
         if not "@" in remoteNodeName:
-            raise "Bad node name for remote node"
+            raise "Bad node name for remote node \"%s\"" % remoteNodeName
         if self._ongoingPings.has_key(remoteNodeName):
             pingCallbacks = self._ongoingPings[remoteNodeName]
             self._ongoingPings[remoteNodeName] = pingCallbacks + [pingCallback]
