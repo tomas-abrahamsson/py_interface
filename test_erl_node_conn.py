@@ -21,8 +21,8 @@ def __TestConnectOk():
 def __TestConnectFailed():
     print "ConnectFailed"
 
-def __TestConnectionBroken():
-    print "ConnectionBroken"
+def __TestConnectionBroken(connection, nodeName):
+    print "ConnectionBroken for %s" % nodeName
 
 def __TestPassThroughMsg(controlMsg, msg=None):
     print "passThrough:"
@@ -65,7 +65,7 @@ def main(argv):
     else:
         sys.exit(1)
 
-    ownNodeName = erl_common.AlignNode(ownNodeName, 1)
+    ownNodeName = erl_common.AlignNodeName(ownNodeName, 1)
 
     print "Connecting to %s:%d"
     print "  ownNodeName=\"%s\"" % ownNodeName
