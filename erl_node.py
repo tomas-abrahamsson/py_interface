@@ -48,7 +48,6 @@ class ErlMBox:
         self._msgCallback = msgCallback
         self._pid = pid
         self._pendingRPCs = {}
-        self._nodeDownSubscriptions = {}
 
     def Self(self):
         """Return the pid for this mbox.
@@ -146,6 +145,72 @@ class ErlMBox:
         Send an request to execute a function in a module on a remote node.
         As for the Send method, this method returns immediately.
         """
+        rexMBox = self._node.WhereisMBox("rex")
+        rexMBox.SendRPC(remoteNode, mod, fun, args, cb)
+
+    ##
+    ## Routines to be called from the node only
+    ##
+    def Msg(self, sourceNodeName, msg):
+        """This routine is intended to be called only from mbox's node.
+
+        SOURCE-NODE-NAME        = string
+        MSG                     = <term>
+
+        Returns: void
+        Throws:  nothing
+
+        An incoming message
+        """
+        self._msgCallback(msg)
+
+    def _Sink(self, *a, **kw):
+        """Message sink."""
+        pass
+
+
+class _ErlRexMBox(ErlMBox):
+    """This class implements what's needed for the rpc (remote procedure call)
+    functionality. It is an mbox that registers itself as "rex".
+    """
+
+    def __init__(self, node, pid):
+        ErlMBox.__init__(self, node, pid, None)
+        self._nodeDownSubscriptions = {}
+
+    def Start(self):
+        self.RegisterName("rex")
+
+
+    def SendRPC(self, remoteNode, mod, fun, args, cb):
+        """Send an rpc to REMOTE-NODE, MOD, FUN, ARGS. Call CB for the answer.
+
+        REMOTE-NODE     = string | <instance of ErlAtom>
+                        The node to send the call to
+        MOD             =  string | <instance of ErlAtom>
+                        The module
+        FUN             = string | <instance of ErlAtom>
+                        The name of the function to call
+        ARGS            = list(<term>)
+                        The argument list
+        CB              = <function(RESULT): void>
+                          REMOTE-NODE = string
+                          RESULT = <term>
+                        A callback function to be called when the answer
+                        to the rpc callback receives. The callback is called
+                        with one arg: the result. Its return value is ignored.
+                        If the remote node goes down during execution, the
+                        callback is called with this value:
+                          tuple(<ErlAtom("EXIT")>,
+                                tuple(<ErlAtom("nodedown")>,
+                                      <ErlAtom(<REMOTE-NODE-NAME>)>))
+
+        Returns: void
+        Throws:  <<to-be-documented>>
+
+        Send an request to execute a function in a module on a remote node.
+        As for the Send method, this method returns immediately.
+        """
         if type(mod) == types.StringType:
             mod = erl_term.ErlAtom(mod)
         if type(fun) == types.StringType:
@@ -173,6 +238,7 @@ class ErlMBox:
                    (erl_term.ErlAtom("call"),
                     mod, fun, args, erl_term.ErlAtom("user"))))
 
+
     ##
     ## Routines to be called from the node only
     ##
@@ -194,7 +260,7 @@ class ErlMBox:
            len(self._pendingRPCs) > 0:
             self._RPCAnswer(sourceNodeName, msg[1])
         else:
-            self._msgCallback(msg)
+            erl_common.Debug("REX: Unexpected msg: %s" % `msg`)
 
     def _RPCAnswer(self, sourceNodeName, answer):
         # Does this assumption always hold:
@@ -216,15 +282,7 @@ class ErlMBox:
                     (erl_term.ErlAtom("nodedown"),
                      erl_term.ErlAtom(nodeName))))
 
-    def _Sink(self, *a, **kw):
-        """Message sink."""
-        pass
 
-
-## FIXME: skapa en mbox och registrera den som "rex".
-##        SKicka alla rpc-meddelanden genom den.
-##        Den får sedan slussa svaren tillbaka till frågaren
-##        och köa inkommande requests(?)
 class ErlNode:
     """This class implements a node, which is equivaluent to an erlang node.
     It is intended to be used in a single-threaded applucation.
@@ -299,7 +357,7 @@ class ErlNode:
                                            self._PassThroughMsg)
         self._epmd.SetOwnPortNum(self._portNum)
         self._epmd.SetOwnNodeName(self._nodeName)
-
+        self._CreateRex()
         
     def CreateMBox(self, msgCallback=None):
         """Creates an mbox, which is equivalent to an erlang process.
@@ -489,6 +547,30 @@ class ErlNode:
         del self._registeredNames[name]
 
 
+    def WhereisMBox(self, name):
+        """Lookup an mbox that is registered under a name.
+        NAME = string
+        Returns: <instance of ErlMBox>
+        Throws:  nothing
+        """
+        mboxPid = self.WhereisPid(name)
+        if mboxPid == None:
+            return None
+        if not self._pids.has_key(mboxPid):
+            return None
+        return self._pids[mboxPid]
+
+    def WhereisPid(self, name):
+        """Lookup an mbox that is registered under a name.
+        NAME = string
+        Returns: <instance of ErlPid>
+        Throws:  nothing
+        """
+        if not self._registeredNames.has_key(name):
+            return None
+        return self._registeredNames[name]
+
+
     def SendMsgFromMBox(self, sourceMBox, dest, msg):
         """This routine is intended to be called from an ErlMBox instance
         SOURCE-MBOX = <instance of ErlMBox>
@@ -570,6 +652,13 @@ class ErlNode:
     ##
     ## Internal routines
     ##
+
+    def _CreateRex(self):
+        mboxPid = self._CreatePid()
+        mbox = _ErlRexMBox(self, mboxPid)
+        self._pids[mboxPid] = mbox
+        self._mboxes[mbox] = mboxPid
+        mbox.Start()
 
     def _CreatePid(self):
         """Returns: <instance of ErlPid>"""
@@ -682,6 +771,7 @@ class ErlNode:
                 mbox.Msg(remoteNodeName, msg)
             else:
                 erl_common.Debug(M, "Got SEND with no dest pid: %s" % toPid)
+                erl_common.Debug(M, "Pids:\n%s" % `self._pids`)
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
             fromPid = ctrlMsg[1]
             toPid = ctrlMsg[2]
