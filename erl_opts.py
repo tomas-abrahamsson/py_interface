@@ -1,6 +1,6 @@
 class ErlNodeOpts:
     def __init__(self,
-                 netTickTime=300,
+                 netTickTime=60,
                  shortNodeNames=1,
                  cookie="",
                  distrVersion=5,
