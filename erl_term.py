@@ -1,28 +1,29 @@
-### erlcom.py -- communication with the erlang
-###              and the Callback and VCallback classes
+### erl_term.py -- python types/classes for all erlang types.
+###                Also: packing and unpacking all types to/from
+###                      the erlang external binary format
 ###
 ### $Id$
 ###
-### Copyright (C) 2000 Tomas Abrahamsson
+### Copyright (C) 2001 Tomas Abrahamsson
 ### 
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
 ### 
-### This file is part of the Albertina caller id displayer
+### This file is part of the Py-Interface
 ###
-### The Albertina program is free software; you can redistribute it
+### The Py-Interface is free software; you can redistribute it
 ### and/or modify it under the terms of the GNU Library General Public License
 ### as published by the Free Software Foundation; either version 2 of the
 ### License, or (at your option) any later version.
 ###
-### The Albertina program is distributed in the hope that it will be
+### The Py-Interface is distributed in the hope that it will be
 ### useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library
 ### General Public License for more details.
 ### 
 ### You should have received a copy of the GNU Library General Public License
-### along with the Albertina program; see the file COPYING.LIB.  If not,
+### along with the Py-Interface; see the file COPYING.LIB.  If not,
 ### write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-### Boston, MA 02111-1307, USA. */
+### Boston, MA 02111-1307, USA.
 ### 
 
 
@@ -33,13 +34,15 @@ import string
 
 
 import erl_common
-import erl_common
 
 def ErlNumber(number):
     return number
 
 _atom_cache = {}
 class ErlAtom:
+    """An Erlang atom. The following attributes are defined:
+    atomText = string
+    """
     def __init__(self, atomText, cache=-1):
         global _atom_cache
         if atomText == None and cache != -1:
@@ -56,11 +59,16 @@ class ErlAtom:
         return "<erl-atom: %s>" % `self.atomText`
 
 def IsErlAtom(term):
+    """Checks whether a term is an Erlang atom or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlAtom)
-
 
             
 class ErlRef:
+    """An Erlang reference. The following attributes are defined:
+    node     = <ErlAtom>
+    id       = integer | list(integer)
+    creation = integer
+    """
     def __init__(self, node, id, creation):
         self.node = node
         self.id = id                    # id is either an int or a list of ints
@@ -70,10 +78,16 @@ class ErlRef:
                (`self.node`, self.id, self.creation)
 
 def IsErlRef(term):
+    """Checks whether a term is an Erlang reference or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlRef)
 
 
 class ErlPort:
+    """An Erlang port. The following attributes are defined:
+    node     = <ErlAtom>
+    id       = integer
+    creation = integer
+    """
     def __init__(self, node, id, creation):
         self.node = node
         self.id = id
@@ -83,9 +97,16 @@ class ErlPort:
                (`self.node`, self.id, self.creation)
 
 def IsErlPort(term):
+    """Checks whether a term is an Erlang reference or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlPort)
 
 class ErlPid:
+    """An Erlang process id. The following attributes are defined:
+    node     = <ErlAtom>
+    id       = integer
+    serial   = integer
+    creation = integer
+    """
     def __init__(self, node, id, serial, creation):
         self.node = node
         self.id = id
@@ -96,27 +117,42 @@ class ErlPid:
                (`self.node`, self.id, self.serial, self.creation)
 
 def IsErlPid(term):
+    """Checks whether a term is an Erlang process id or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlPid)
 
 def ErlTuple(elementsAsList):
+    """An Erlang tuple. This maps to a python tuple."""
     return tuple(elementsAsList)
 
 def ErlList(elements):
+    """An Erlang list. This maps to a python list."""
     return elements
 
 class ErlBinary:
+    """An Erlang binary. The following attributes are defined:
+    contents = string
+    """
     def __init__(self, contets):
-        self._contents = contets        #  a string
+        self.contents = contets        #  a string
     def __repr__(self):
-        return "<erl-binary: size=%d>" % len(self._contents)
+        return "<erl-binary: size=%d>" % len(self.contents)
 
 def IsErlBinary(term):
+    """Checks whether a term is an Erlang binary or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlBinary)
 
 def ErlString(s):
+    """An Erlang list. This maps to a python string."""
     return s
 
 class ErlFun:
+    """An Erlang process id. The following attributes are defined:
+    pid      = <ErlPid>
+    module   = <ErlAtom>
+    index    = integer
+    uniq     = integer
+    freeVars = list(term)
+    """
     def __init__(self, pid, module, index, uniq, freeVars):
         self.pid = pid
         self.module = module
@@ -130,12 +166,13 @@ class ErlFun:
 
 
 def IsErlFun(term):
+    """Checks whether a term is an Erlang function or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlFun)
 
 ###
 ### MAGIC tags used in packing/unpacking. See erl_ext_dist.txt
 ###
-MAGIC_MAGIC = 131
+MAGIC_VERSION = 131
 MAGIC_STRING = 107
 MAGIC_NIL = 106
 MAGIC_LIST = 108
@@ -160,16 +197,32 @@ MAGIC_CACHED_ATOM = 67
 ### UNPACKING
 ###
 def BinaryToTerm(binary):
-    (term, remaining) = _UnpackOneTerm(binary)
+    """Unpack a binary to a term.
+
+    BINARY = string
+
+    Returns: term
+    Throws:  "BinaryToTerm: Extraneous data in binary"
+    """
+    (term, remaining) = _UnpackOneTermTop(binary)
     if len(remaining) != 0:
         raise "BinaryToTerm: Extraneous data in binary"
     return term
 
 def BinariesToTerms(binary):
-    (term, remaining) = BufToTerm(binary)
+    """Unpack a binary/binaries to term(s).
+    This is mainly for use by the erl_node_conn, where, in some cases,
+    two or more terms are packed together.
+
+    BINARY = string
+
+    Returns: list(term)
+    Throws:  "BinaryToTerm: Extraneous data in binary"
+    """
+    (terms, remaining) = BufToTerm(binary)
     if len(remaining) != 0:
         raise "BinaryToTerm: Extraneous data in binary"
-    return term
+    return terms
 
 def BufToTerm(data):
     unpackedTerms = []
@@ -184,7 +237,7 @@ def BufToTerm(data):
 def _UnpackOneTermTop(data):
     if len(data) == 0: 
         return (None, data)
-    if data[0] != chr(MAGIC_MAGIC):
+    if data[0] != chr(MAGIC_VERSION):
         return (None, data)
     return _UnpackOneTerm(data[1:])
 
@@ -390,8 +443,7 @@ def _UnpackOneTerm(data):
         (uniq, remainingData4) = _UnpackOneTerm(remainingData3)
         if uniq == None:
             return (None, data)
-        (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,
-                                                         remainingData4)
+        (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,remainingData4)
         if freeVars == None:
             return (None, data)
         return (ErlFun(pid, module, index, uniq, freeVars),
@@ -436,7 +488,14 @@ def _ReadInt4(s):
 ###
 
 def TermToBinary(term):
-    return chr(MAGIC_MAGIC) + _PackOneTerm(term)
+    """Pack a term to a binary.
+
+    TERM = term
+
+    Returns: string
+    Throws:  "Can't pack value of type ..."
+    """
+    return chr(MAGIC_VERSION) + _PackOneTerm(term)
 
 def _PackOneTerm(term):
     if type(term) == types.StringType:
