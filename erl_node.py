@@ -221,6 +221,10 @@ class ErlMBox:
         pass
 
 
+## FIXME: skapa en mbox och registrera den som "rex".
+##        SKicka alla rpc-meddelanden genom den.
+##        Den får sedan slussa svaren tillbaka till frågaren
+##        och köa inkommande requests(?)
 class ErlNode:
     """This class implements a node, which is equivaluent to an erlang node.
     It is intended to be used in a single-threaded applucation.
@@ -457,6 +461,12 @@ class ErlNode:
     ##
 
     def RegisterNameForMBox(self, mbox, name):
+        """This routine is intended to be called from an ErlMBox instance.
+        MBOX = <instance of ErlMBox>
+        NAME = string
+        Returns: void
+        Throws:  <<IsRegistered>>
+        """
         mboxPid = mbox.Self()
         if self._registeredNames.has_key(name):
             raise "IsRegistered"
@@ -466,6 +476,11 @@ class ErlNode:
         self._registeredPids[mboxPid] = name
 
     def UnregisterNameForMBox(self, mbox):
+        """This routine is intended to be called from an ErlMBox instance
+        MBOX = <instance of ErlMBox>
+        Returns: void
+        Throws:  <<NotRegistered>>
+        """
         mboxPid = mbox.Self()
         if not self._registeredPids.has_key(mboxPid):
             raise "NotRegistered"
@@ -475,6 +490,17 @@ class ErlNode:
 
 
     def SendMsgFromMBox(self, sourceMBox, dest, msg):
+        """This routine is intended to be called from an ErlMBox instance
+        SOURCE-MBOX = <instance of ErlMBox>
+        DEST        = <instance of ErlPid> |
+                      string |
+                      <instance of ErlAtom> |
+                      tuple(DEST-NODE, DEST-REGNAME)
+                      DEST-NODE = DEST-REGNAME = string | <instance of ErlAtom>
+        MSG         = <term>
+        Returns: void
+        THrows:  <<to-be-documented>>
+        """
         ## Possible dest types:
         ## - A tuple: (registered_name, node_name)
         ## - An atom: registered_name
@@ -546,6 +572,7 @@ class ErlNode:
     ##
 
     def _CreatePid(self):
+        """Returns: <instance of ErlPid>"""
         ## Code stolen from com/ericsson/otp/erlang/OtpLocalNode.java
         global _serial, _pidCount
         newPid = erl_term.ErlPid(erl_term.ErlAtom(self._nodeName),
@@ -559,6 +586,8 @@ class ErlNode:
         return newPid
 
     def _EpmdConnectedOk(self, creation):
+        """This callback is called when the publish to EPMD has successfully
+        completed."""
         self._isServerPublished = 1
         self._creation = creation
 
@@ -566,6 +595,8 @@ class ErlNode:
         raise "Failed to connect to epmd (%d)" % errorResult
 
     def _NodeUp(self, connection, nodeName):
+        """This callback is called from the in/out connection object
+        when a new connection has been established."""
         erl_common.Debug(M, "NODEUP: nodeName=%s connection=%s" % \
                          (nodeName, connection))
         self._connections[nodeName] = connection
@@ -573,6 +604,8 @@ class ErlNode:
             cb("nodeup", nodeName)
 
     def _NodeDown(self, connection, nodeName):
+        """This callback is called from the in/out connection object when a
+        connection has been broken."""
         erl_common.Debug(M, "NODENOWN: nodeName=%s connection=%s" % \
                          (nodeName, connection))
         if self._connections.has_key(nodeName):
@@ -583,6 +616,11 @@ class ErlNode:
     def _PingEpmdResponse(self, result, portNum, nodeType, proto,
                           distVSNRange, nodeNameNoHost, extra,
                           remoteNodeName):
+        """This callback is called when the lookup for a nodename at a host
+        has returned, whether it was successful or not.
+        If it was successful, then RESULT != 0 and the other parameters
+        are valid. If it was not successful, then the other parameters have
+        undefined values."""
         if result != 0:
             callbacks = self._ongoingPings[remoteNodeName]
             del self._ongoingPings[remoteNodeName]
@@ -607,6 +645,8 @@ class ErlNode:
                                    self._PassThroughMsg)
 
     def _PingSucceeded(self, connection, remoteNodeName):
+        """This internal routine signals that the ping of another node
+        was successul."""
         callbacks = self._ongoingPings[remoteNodeName]
         del self._ongoingPings[remoteNodeName]
         self._NodeUp(connection, remoteNodeName)
@@ -614,16 +654,17 @@ class ErlNode:
             cb("pong")
 
     def _PingFailed(self, connection, remoteNodeName):
+        """This internal routine signals that the ping of another node
+        failed."""
         callbacks = self._ongoingPings[remoteNodeName]
         del self._ongoingPings[remoteNodeName]
         for cb in callbacks:
             cb("pang")
         
-    def _OutConnectionBroken(self, connection, remoteNodeName):
-        if self._connections.has_key(remoteNodeName):
-            del self._connections[remoteNodeName]
 
     def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
+        """This callback is called when a connection recevies a message of
+        type passthrough. Currently all messages are of type passthrough."""
         erl_common.Debug(M, "ctrlMsg=%s" % `ctrlMsg`)
 
         ctrlMsgOp = ctrlMsg[0]
@@ -719,6 +760,7 @@ class ErlNode:
             erl_common.Debug(M, "Unknown controlmsg: %s" % `ctrlMsg`)
 
     def _SendMsgToRemoteNode(self, pingResult, srcPid, destNode, destPid, msg):
+        """This internal routine performs the actual sending."""
         if pingResult != "pong":
             return
         destNodeName = destNode.atomText
