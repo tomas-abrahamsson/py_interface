@@ -1,15 +1,12 @@
 import socket
+import SOCKET
 
-import erl_term
 import erl_common
 import eventhandler
 
 
 class ErlAsyncPeerConnection:
     def __init__(self, openSocket=None):
-        self.packer = erl_term.Packer()
-        self.unpacker = erl_term.Unpacker()
-
         self.evhandler = eventhandler.GetEventHandler()
         if openSocket == None:
             self._Init()
@@ -34,13 +31,6 @@ class ErlAsyncPeerConnection:
             return None
         else:
             return self._connection
-
-    def PackTerm(self, term):
-        return self.packer.Pack(term)
-
-
-    def UnpackTerm(self, data):
-        return self.unpacker.Unpack(data)
 
 
     ##
@@ -154,6 +144,7 @@ class ErlAsyncServer(ErlAsyncPeerConnection):
             s.setblocking(0)
             self.hostname = iface
             self.portNum = resultPortNum
+            self._SetConnectionOpen(s)
             return resultPortNum
         except socket.error, errInfo:
             print "socket error:", errInfo
