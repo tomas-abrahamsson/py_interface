@@ -1,0 +1,108 @@
+## This is a -*- makefile -*-
+
+# What the Python binary is called on your system
+PYTHON = @PYTHON@
+
+
+# Prefix for constructing installation directory paths
+prefix = @prefix@
+exec_prefix = $(prefix)
+
+# Installation command
+INSTALL = @INSTALL@
+INSTALL_DATA = @INSTALL_DATA@
+
+# Various auxiliary programs
+tar=tar
+grep=grep
+sed=sed
+rm=rm
+ln=ln
+mkdir=mkdir
+tar=tar
+
+srcdir = @srcdir@
+VPATH = @srcdir@
+
+SOURCES = erl_node.py \
+          erl_node_conn.py \
+          erl_async_conn.py \
+          erl_opts.py \
+          erl_common.py \
+          erl_epmd.py \
+          erl_eventhandler.py \
+          erl_term.py
+
+TESTPROGRAMS = test_erl_epmd.py \
+               test_erl_node.py \
+               test_erl_node_conn.py \
+               test_erl_node_tk_1.py
+
+OBJECTS = 
+
+DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
+        Makefile.in configure configure.in \
+        mkinstalldirs install-sh
+
+
+SHELL = /bin/sh
+#.PHONY: all clean dist distclean install \
+#	installdirs ps uninstall
+.SUFFIXES:
+
+all: $(OBJECTS)
+
+install: all installdirs
+
+#	  for f in $(ELISP_SOURCES); do \
+#	    $(INSTALL_DATA) $(srcdir)/$$f $(lispdir); \
+#	  done;
+#	  for f in $(ELISP_OBJECTS); do \
+#	    $(INSTALL_DATA) $$f $(lispdir); \
+#	  done;
+
+# Make sure all installation directories actually exist
+# by making them if necessary.
+installdirs: mkinstalldirs
+
+#	$(srcdir)/mkinstalldirs $(pythondir)
+
+uninstall:
+
+#	-cd $(pythondir) && rm -f $(SOURCES) $(OBJECTS)
+
+TAGS: $(SOURCES)
+	cd $(srcdir) && etags $(SOURCES)
+
+clean:
+	rm -f $(OBJECTS)
+	-rm -f *.aux *.cp *.cps *.fn *.ky *.log *.pg *.toc *.tp *.vr
+	-rm -f *.html
+	rm -f TAGS
+	rm -f erl_crash.dump
+
+distclean: clean
+	-rm -f *~ *.tar.gz
+	rm -f Makefile config.status config.cache config.log
+
+${srcdir}/configure: configure.in
+	cd ${srcdir} && autoconf
+
+Makefile: Makefile.in config.status
+	./config.status
+
+config.status: ${srcdir}/configure
+	./config.status --recheck
+
+
+dist: $(DISTFILES)
+	version=`$(grep) vsn py_interface.pub | \
+		 $(sed) 's/^.*\([0-9][0-9]*\),\([0-9][0-9]*\).*$$/\1.\2/'`;\
+	distname=py_interface-$$version; \
+	$(rm) -rf $$distname; \
+	$(mkdir) $$distname; \
+	for file in $(DISTFILES); do \
+	  $(ln) $$file $$distname/$$file; \
+	done; \
+	$(tar) -chz -f $$distname.tar.gz $$distname; \
+	$(rm) -rf $$distname
