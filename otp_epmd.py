@@ -4,15 +4,13 @@ import string
 import socket
 import getopt
 
+import common
 import erl_common
 import eventhandler
 import erl_async_conn
 
 NODETYPE_NORMAL = 77
 NODETYPE_HIDDEN = 72
-
-import common
-import erl_async_conn
 
 class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
     _PORT_PLEASE_REQ = 112
