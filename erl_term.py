@@ -133,6 +133,30 @@ def IsErlFun(term):
     return type(term) == types.InstanceType and isinstance(term, ErlFun)
 
 ###
+### MAGIC tags used in packing/unpacking. See erl_ext_dist.txt
+###
+MAGIC_MAGIC = 131
+MAGIC_STRING = 107
+MAGIC_NIL = 106
+MAGIC_LIST = 108
+MAGIC_SMALL_TUPLE = 104
+MAGIC_LARGE_TUPLE = 105
+MAGIC_LARGE_BIG = 111
+MAGIC_SMALL_BIG = 110
+MAGIC_FLOAT = 99
+MAGIC_SMALL_INTEGER = 97
+MAGIC_INTEGER = 98
+MAGIC_ATOM = 100
+MAGIC_NEW_REFERENCE = 114
+MAGIC_REFERENCE = 101
+MAGIC_PORT = 102
+MAGIC_PID = 103
+MAGIC_BINARY = 109
+MAGIC_FUN = 117
+MAGIC_NEW_CACHE = 78
+MAGIC_CACHED_ATOM = 67
+
+###
 ### UNPACKING
 ###
 def BinaryToTerm(binary):
@@ -160,7 +184,7 @@ def BufToTerm(data):
 def _UnpackOneTermTop(data):
     if len(data) == 0: 
         return (None, data)
-    if data[0] != chr(131):
+    if data[0] != chr(MAGIC_MAGIC):
         return (None, data)
     return _UnpackOneTerm(data[1:])
 
@@ -172,19 +196,19 @@ def _UnpackOneTerm(data):
         return (None, data)
 
     data0 = ord(data[0])
-    if data0 == 97:                 # small_integer_ext
+    if data0 == MAGIC_SMALL_INTEGER:
         if dataLen < 2:
             return (None, data)
         n = _ReadInt1(data[1])
         return (ErlNumber(n), data[2:])
 
-    elif data0 == 98:               # integer_ext
+    elif data0 == MAGIC_INTEGER:
         if dataLen < 5:
             return (None, data)
         n = _ReadInt4(data[1:5])
         return (ErlNumber(i), data[5:])
 
-    elif data0 == 99:               # float_ext
+    elif data0 == MAGIC_FLOAT:
         if dataLen < 32:
             return (None, data)
         floatData = data[1:32]
@@ -196,7 +220,7 @@ def _UnpackOneTerm(data):
         f = string.atof(floatStr)
         return (ErlNumber(f), data[32:])
 
-    elif data0 == 100:              # atom_ext
+    elif data0 == MAGIC_ATOM:
         if dataLen < 3:
             return (None, data)
         atomLen = _ReadInt2(data[1:3])
@@ -205,7 +229,7 @@ def _UnpackOneTerm(data):
         atomText = data[3:3 + atomLen]
         return (ErlAtom(atomText), data[3 + atomLen:])
 
-    elif data0 == 101:              # reference_ext
+    elif data0 == MAGIC_REFERENCE:
         (node, remainingData) = _UnpackOneTerm(data[1:])
         if node == None:
             return (None, data)
@@ -215,7 +239,7 @@ def _UnpackOneTerm(data):
         creation = _ReadCreation(remainingData[4])
         return (ErlRef(node, id, creation), remainingData[5:])
 
-    elif data0 == 102:              # port_ext
+    elif data0 == MAGIC_PORT:
         (node, remainingData) = _UnpackOneTerm(data[1:])
         if node == None:
             return (None, data)
@@ -225,7 +249,7 @@ def _UnpackOneTerm(data):
         creation = _ReadCreation(remainingData[4])
         return (ErlPort(node, id, creation), remainingData[5:])
 
-    elif data0 == 103:              # pid_ext
+    elif data0 == MAGIC_PID:
         (node, remainingData) = _UnpackOneTerm(data[1:])
         if node == None:
             return (None, data)
@@ -236,7 +260,7 @@ def _UnpackOneTerm(data):
         creation = _ReadCreation(remainingData[8])
         return (ErlPid(node, id, serial, creation), remainingData[9:])
 
-    elif data0 == 104:              # small_tuple_ext
+    elif data0 == MAGIC_SMALL_TUPLE:
         if dataLen < 2:
             return (None, data)
         arity = _ReadInt1(data[1])
@@ -245,7 +269,7 @@ def _UnpackOneTerm(data):
             return (None, data)
         return (ErlTuple(elements), remainingData)
 
-    elif data0 == 105:              # large_tuple_ext
+    elif data0 == MAGIC_LARGE_TUPLE:
         if dataLen < 5:
             return (None, data)
         arity = _ReadInt4(data[1:5])
@@ -254,10 +278,10 @@ def _UnpackOneTerm(data):
             return (None, data)
         return (ErlTuple(elements), remainingData)
 
-    elif data0 == 106:              # nil_ext:
+    elif data0 == MAGIC_NIL:
         return (ErlList([]), data[1:])
 
-    elif data0 == 107:              # string_ext
+    elif data0 == MAGIC_STRING:
         if dataLen < 3:
             return (None, data)
         strlen = _ReadInt2(data[1:3])
@@ -266,7 +290,7 @@ def _UnpackOneTerm(data):
         s = data[3:3 + strlen]
         return (ErlString(s), data[3 + strlen:])
 
-    elif data0 == 108:              # list_ext
+    elif data0 == MAGIC_LIST:
         if dataLen < 5:
             return (None, data)
         arity = _ReadInt4(data[1:5])
@@ -275,7 +299,7 @@ def _UnpackOneTerm(data):
             return (None, data)
         return (ErlList(elements), remainingData)
 
-    elif data0 == 109:              # binary_ext
+    elif data0 == MAGIC_BINARY:
         if dataLen < 5:
             return (None, data)
         binlen = _ReadInt4(data[1:5])
@@ -284,7 +308,7 @@ def _UnpackOneTerm(data):
         s = data[5:5 + binlen]
         return (ErlBinary(s), data[5 + binlen:])
 
-    elif data0 == 110:              # small_big_ext
+    elif data0 == MAGIC_SMALL_BIG:
         if dataLen < 2:
             return (None, data)
         n = _ReadInt1(data[1])
@@ -299,7 +323,7 @@ def _UnpackOneTerm(data):
             bignum = bignum * -1L
         return (ErlNumber(bignum), data[3 + n:])
 
-    elif data0 == 111:              # large_big_ext
+    elif data0 == MAGIC_LARGE_BIG:
         if dataLen < 5:
             return (None, data)
         n = _ReadInt4(data[1:5])
@@ -314,7 +338,7 @@ def _UnpackOneTerm(data):
             bignum = bignum * -1L
         return (ErlNumber(bignum), data[6 + n:])
 
-    elif data0 == 78:               # new_cache
+    elif data0 == MAGIC_NEW_CACHE:
         if dataLen < 4:
             return (None, data)
         index = _ReadInt1(data[1])
@@ -324,13 +348,13 @@ def _UnpackOneTerm(data):
         atomText = data[4:4 + atomLen]
         return (ErlAtom(atomText, cache=index), data[4 + atomLen:])
 
-    elif data0 == 67:               # cached_atom
+    elif data0 == MAGIC_CACHED_ATOM:
         if dataLen < 2:
             return (None, data)
         index = _ReadInt1(data[1])
         return (ErlAtom(None, cache=index), data[2:])
 
-    elif data0 == 114:              # new_reference_ext
+    elif data0 == MAGIC_NEW_REFERENCE:
         if dataLen < 3:
             return (None, data)
         idLen = _ReadInt2(data[1:3])
@@ -350,7 +374,7 @@ def _UnpackOneTerm(data):
             remainingData = remainingData[4:]
         return (ErlRef(node, creation, id), remainingData)
 
-    elif data0 == 117:              # fun_ext
+    elif data0 == MAGIC_FUN:
         if dataLen < 5:
             return (None, data)
         freevarsLen = _ReadInt4(data[1:5])
@@ -410,8 +434,9 @@ def _ReadInt4(s):
 ###
 ### PACKING
 ###
+
 def TermToBinary(term):
-    return chr(131) + _PackOneTerm(term)
+    return chr(MAGIC_MAGIC) + _PackOneTerm(term)
 
 def _PackOneTerm(term):
     if type(term) == types.StringType:
@@ -447,24 +472,24 @@ def _PackString(term):
     if len(term) == 0:
         return PackList([])
     elif len(term) <= 65535:
-        return _PackInt1(107) + _PackInt2(len(term)) + term
+        return _PackInt1(MAGIC_STRING) + _PackInt2(len(term)) + term
     else:
         return PackList(map(lambda c: ord(c), term))
 
 def _PackList(term):
     if len(term) == 0:
-        return _PackInt1(106)
+        return _PackInt1(MAGIC_NIL)
     else:
         packedData = ""
         for elem in term:
             packedData = packedData + _PackOneTerm(elem)
-        return _PackInt1(108) + _PackInt4(len(term)) + packedData
+        return _PackInt1(MAGIC_LIST) + _PackInt4(len(term)) + packedData
 
 def _PackTuple(term):
     if len(term) < 256:
-        head = _PackInt1(104) + _PackInt1(len(term))
+        head = _PackInt1(MAGIC_SMALL_TUPLE) + _PackInt1(len(term))
     else:
-        head = _PackInt1(105) + _PackInt4(len(term))
+        head = _PackInt1(MAGIC_LARGE_TUPLE) + _PackInt4(len(term))
     packedData = head
     for elem in term:
         packedData = packedData + _PackOneTerm(elem)
@@ -477,10 +502,12 @@ def _PackLong(term):
     else:
         numBytesNeeded = int(math.log(term) / math.log(256)) + 1
         if numBytesNeeded > 1:
-            return _PackInt1(111) + _PackInt4(numBytesNeeded) + \
+            return _PackInt1(MAGIC_LARGE_BIG) + \
+                   _PackInt4(numBytesNeeded) + \
                    _PackLongBytes(term, numBytesNeeded)
         else:
-            return _PackInt1(110) + _PackInt1(numBytesNeeded) + \
+            return _PackInt1(MAGIC_SMALL_BIG) + \
+                   _PackInt1(numBytesNeeded) + \
                    _PackLongBytes(term, numBytesNeeded)
 
 def _PackLongBytes(term, numBytesNeeded):
@@ -498,23 +525,23 @@ def _PackLongBytes(term, numBytesNeeded):
 def _PackFloat(term):
     floatStr = "%.20e" % term
     nullPadStr = _PackInt1(0) * (31 - len(floatStr))
-    return _PackInt1(99) + floatStr + nullPadStr
+    return _PackInt1(MAGIC_FLOAT) + floatStr + nullPadStr
 
 def _PackInt(term):
     if 0 <= term < 256:
-        return _PackInt1(97) + _PackInt1(term)
+        return _PackInt1(MAGIC_SMALL_INTEGER) + _PackInt1(term)
     else:
-        return _PackInt1(98) + _PackInt4(term)
+        return _PackInt1(MAGIC_INTEGER) + _PackInt4(term)
 
 def _PackAtom(term):
     atomText = term.atomText
-    return _PackInt1(100) + _PackInt2(len(atomText)) + atomText
+    return _PackInt1(MAGIC_ATOM) + _PackInt2(len(atomText)) + atomText
 
 def _PackRef(term):
     if type(term.id) == types.ListType:
         return _PackNewReferenceExt(term)
     else:
-        return _PackOldReferenceExt(term)
+        return _PackReferenceExt(term)
 
 def _PackNewReferenceExt(term):
     node = _PackOneTerm(term.node)
@@ -523,30 +550,33 @@ def _PackNewReferenceExt(term):
     ids = id0
     for id in term.id[1:]:
         ids = ids + _PackInt4(id)
-    return _PackInt1(114) + _PackInt2(len(term.id)) + \
+    return _PackInt1(MAGIC_NEW_REFERENCE) + \
+           _PackInt2(len(term.id)) + \
            node + creation + ids
 
-def _PackNewReferenceExt(term):
+def _PackReferenceExt(term):
     node = _PackOneTerm(term.node)
     id = _PackId(term.id)
     creation = _PackCreation(term.creation)
-    return _PackInt1(101) + node + id + creation
+    return _PackInt1(MAGIC_REFERENCE) + node + id + creation
 
 def _PackPort(term):
     node = _PackOneTerm(term.node)
     id = _PackId(term.id)
     creation = _PackCreation(term.creation)
-    return _PackInt1(102) + node + id + creation
+    return _PackInt1(MAGIC_PORT) + node + id + creation
 
 def _PackPid(term):
     node = _PackOneTerm(term.node)
     id = _PackId(term.id, 15)
     serial = _PackInt4(term.serial)
     creation = _PackCreation(term.creation)
-    return _PackInt1(102) + node + id + serial + creation
+    return _PackInt1(MAGIC_PID) + node + id + serial + creation
 
 def _PackBinary(term):
-    return _PackInt1(109) + _PackInt4(len(term.contents)) + term.contents
+    return _PackInt1(MAGIC_BINARY) + \
+           _PackInt4(len(term.contents)) + \
+           term.contents
 
 def _PackFun(term):
     numFreeVars = _PackInt4(len(term.freeVars))
@@ -557,7 +587,7 @@ def _PackFun(term):
     freeVars = ""
     for freeVar in term.freeVars:
         freeVars = freeVars + _PackOneTerm(freeVar)
-    return _PackInt4(117) + numFreeVars + \
+    return _PackInt4(MAGIC_FUN) + numFreeVars + \
            pid + module + index + uniq + freeVars
 
 
