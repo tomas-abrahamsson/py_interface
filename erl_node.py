@@ -759,11 +759,11 @@ class ErlNode:
         ctrlMsgOp = ctrlMsg[0]
         if ctrlMsgOp == self.CTRLMSGOP_LINK:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_SEND:
             cookie = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             msg = msg
             erl_common.Debug(M, "SEND: msg=%s" % `msg`)
             if self._pids.has_key(toPid):
@@ -774,12 +774,12 @@ class ErlNode:
                 erl_common.Debug(M, "Pids:\n%s" % `self._pids`)
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             reason = ctrlMsg[3]
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_UNLINK:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_NODE_LINK:
             pass
@@ -799,22 +799,22 @@ class ErlNode:
                                  (toName, msg))
         elif ctrlMsgOp == self.CTRLMSGOP_GROUP_LEADER:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT2:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             reason = ctrlMsg[3]
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_SEND_TT:
             cookie = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             traceToken = ctrlMsg[3]
             msg = msg
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT_TT:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             traceToken = ctrlMsg[3]
             reason = ctrlMsg[4]
             pass
@@ -827,23 +827,23 @@ class ErlNode:
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT2_TT:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             traceToken = ctrlMsg[3]
             reason = ctrlMsg[4]
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_MONITOR_P:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             ref = ctrlMsg[3]
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_DEMONITOR_P:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             ref = ctrlMsg[3]
             pass
         elif ctrlMsgOp == self.CTRLMSGOP_MONITOR_P_EXIT:
             fromPid = ctrlMsg[1]
-            toPid = ctrlMsg[2]
+            toPid = self._InternPid(ctrlMsg[2])
             ref = ctrlMsg[3]
             pass
         else:
@@ -863,3 +863,13 @@ class ErlNode:
         else:
             ctrlMsg = (self.CTRLMSGOP_SEND, cookie, destPid)
         conn.SendMsg(ctrlMsg, msg)
+
+    def _InternPid(self, newPid):
+        """This is like intern() for strings, but for pids.
+        The purpose is so that we'll be able to lookup pids
+        in self._pids and self._registredPids.
+        """
+        for existingPid in self._pids.keys():
+            if existingPid.equals(newPid):
+                return existingPid
+        return newPid
