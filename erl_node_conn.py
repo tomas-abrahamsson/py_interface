@@ -28,6 +28,57 @@ def GenChallenge():
     return int(random.random() * 0x7fffffff)
 
 
+class Ticker:
+    def __init__(self, netTickTime, timeToTickCb, noResponseCb):
+        self._connection = ""
+        self._netTickTime = netTickTime
+        self._evhandler = erl_eventhandler.GetEventHandler()
+        self._timeToTickCb = timeToTickCb
+        self._noResponseCb = noResponseCb
+        self._StartResponseTimer()
+        self._StartTickTimer()
+
+    def _StartResponseTimer(self):
+        netTickTime = self._netTickTime
+        timerId = self._evhandler.AddTimerEvent(netTickTime, self._NoResponse)
+        self._checkResponseTimerId = timerId
+
+    def _StopResponseTimer(self):
+        if self._checkResponseTimerId != None:
+            self._evhandler.DelTimerEvent(self._checkResponseTimerId)
+        self._checkResponseTimerId = None
+
+    def GotResonse(self):
+        self._StopResponseTimer()
+        self._StartResponseTimer()
+
+    def _NoResponse(self):
+        # Don't restart the response timer
+        self._checkResponseTimerId = None
+        self._noResponseCb()
+                                      
+    def _StartTickTimer(self):
+        timerId = self._evhandler.AddTimerEvent(self._netTickTime, self._Tick)
+        self._tickTimerId = timerId
+
+    def _StopTickTimer(self):
+        if self._tickTimerId != None:
+            self._evhandler.DelTimerEvent(self._tickTimerId)
+        self._tickTimerId = None
+
+    def RestartTick(self):
+        self._StopTickTimer()
+        self._StartTickTimer()
+
+    def _Tick(self):
+        self._tickTimerId = None
+        self._StartTickTimer()
+        self._timeToTickCb()
+
+    def Stop(self):
+        self._StopResponseTimer()
+        self._StopTickTimer()
+
 class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     _STATE_DISCONNECTED = -1
     _STATE_HANDSHAKE_RECV_STATUS = 2
@@ -46,6 +97,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._state = self._STATE_DISCONNECTED
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
+        # These are started once the connection is up
+        self._tickTimers = None
 
     def InitiateConnection(self, hostName, portNum,
                            connectOkCb, connectFailedCb, connectionBrokenCb,
@@ -90,6 +143,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._connectFailedCb()
             else:
                 self._state = self._STATE_DISCONNECTED
+                if self._tickTimers != None:
+                    self._tickTimers.Stop()
                 self._connectionBrokenCb()
             return
 
@@ -164,6 +219,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             if CheckDigest(digest, self._challengeToPeer, ownCookie):
                 self._packetLenSize = 4
                 self._state = self._STATE_CONNECTED
+                t = self._opts.GetNetTickTime()
+                self._tickTimers = Ticker(t, self._Tick, self._NoResponse)
                 self._connectOkCb()
             else:
                 erl_common.Debug(M,
@@ -173,32 +230,41 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
         elif self._state == self._STATE_CONNECTED:
+            self._tickTimers.GotResonse()
             if len(data) == 0:
-                # tick. Answer with another tick
-                erl_common.Debug(M, "Tick")
-                self._SendPacket("")
-            else:
-                msgType = data[0]
-                if msgType == "p":
-                    terms = erl_term.BinariesToTerms(data[1:])
-                    if len(terms) == 2:
-                        controlMsg = terms[0]
-                        msg = terms[1]
-                        self._passThroughMsgCb(self, self.GetPeerNodeName(),
-                                               controlMsg, msg)
-                    elif len(terms) == 1:
-                        controlMsg = terms[0]
-                        self._passThroughMsgCb(self, self.GetPeerNodeName(),
-                                               controlMsg, msg)
-                    else:
-                        debugTxt = "PassThrough-msg: terms=%s" % `terms`
-                        erl_common.DebugHex(M, debugTxt, data)
+                # A tick
+                return
+
+            msgType = data[0]
+            if msgType == "p":
+                terms = erl_term.BinariesToTerms(data[1:])
+                if len(terms) == 2:
+                    controlMsg = terms[0]
+                    msg = terms[1]
+                    self._passThroughMsgCb(self, self.GetPeerNodeName(),
+                                           controlMsg, msg)
+                elif len(terms) == 1:
+                    controlMsg = terms[0]
+                    self._passThroughMsgCb(self, self.GetPeerNodeName(),
+                                           controlMsg, msg)
                 else:
-                    debugTxt = "msgType=%c" % msgType
+                    debugTxt = "PassThrough-msg: terms=%s" % `terms`
                     erl_common.DebugHex(M, debugTxt, data)
+            else:
+                erl_common.DebugHex(M, "msgType=%c" % msgType, data)
         else:
             erl_common.DebugUnrecognizedMsg(M, "state=%d" % self._state, data)
 
+
+    def _Tick(self):
+        self._SendPacket("")
+
+    def _NoResponse(self):
+        erl_common.Debug(M, "InConnection: Connection broken")
+        self._state = self._STATE_DISCONNECTED
+        self._tickTimers.Stop()
+        self._connectionBrokenCb(self, self.GetPeerNodeName())
+        
 
     def _SendName(self):
         packet = "n" + \
@@ -225,6 +291,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     def _SendPacket(self, packet):
         msg = self.PackInt4(len(packet)) + packet
         erl_common.Debug(M, "Sending msg")
+        self._tickTimers.RestartTick()
         self.Send(msg)
 
 
@@ -276,6 +343,8 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._peerName = None
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
+        # These are started once the connection is up
+        self._tickTimers = None
 
     def GetPeerNodeName(self):
         return self._peerName
@@ -305,6 +374,8 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             else:
                 erl_common.Debug(M, "InConnection: Connection broken")
                 self._state = self._STATE_DISCONNECTED
+                if self._tickTimers != None:
+                    self._tickTimers.Stop()
                 self._connectionBrokenCb(self, self.GetPeerNodeName())
             return
 
@@ -360,6 +431,8 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 self._SendChallengeAck(peersChallenge)
                 self._packetLenSIze = 4
                 self._state = self._STATE_CONNECTED
+                t = self._opts.GetNetTickTime()
+                self._tickTimers = Ticker(t, self._Tick, self._NoResponse)
                 self._newConnectionUpCb(self, self.GetPeerNodeName())
             else:
                 erl_common.Debug(M,
@@ -368,32 +441,41 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
         elif self._state == self._STATE_CONNECTED:
+            self._tickTimers.GotResonse()
             if len(data) == 0:
-                # tick. Answer with another tick
-                erl_common.Debug(M, "Tick")
-                self._SendPacket("")
-            else:
-                msgType = data[0]
-                if msgType == "p":
-                    terms = erl_term.BinariesToTerms(data[1:])
-                    if len(terms) == 2:
-                        controlMsg = terms[0]
-                        msg = terms[1]
-                        self._passThroughMsgCb(self, self.GetPeerNodeName(),
-                                               controlMsg, msg)
-                    elif len(terms) == 1:
-                        controlMsg = terms[0]
-                        self._passThroughMsgCb(self, self.GetPeerNodeName(),
-                                               controlMsg)
-                    else:
-                        debugTxt = "PassThrough-msg: terms=%s" % `terms`
-                        erl_common.DebugHex(M, debugTxt, data)
+                # A tick
+                return
+
+            msgType = data[0]
+            if msgType == "p":
+                terms = erl_term.BinariesToTerms(data[1:])
+                if len(terms) == 2:
+                    controlMsg = terms[0]
+                    msg = terms[1]
+                    peerName = self.GetPeerNodeName()
+                    self._passThroughMsgCb(self, peerName, controlMsg, msg)
+                elif len(terms) == 1:
+                    controlMsg = terms[0]
+                    peerName = self.GetPeerNodeName()
+                    self._passThroughMsgCb(self, peerName, controlMsg)
                 else:
-                    debugTxt = "msgType=%c" % msgType
+                    debugTxt = "PassThrough-msg: terms=%s" % `terms`
                     erl_common.DebugHex(M, debugTxt, data)
+            else:
+                erl_common.DebugHex(M, "msgType=%c" % msgType, data)
         else:
             erl_common.DebugHex(M, "state=%d" % self._state, data)
             
+
+    def _Tick(self):
+        self._SendPacket("")
+
+    def _NoResponse(self):
+        erl_common.Debug(M, "InConnection: Connection broken")
+        self._state = self._STATE_DISCONNECTED
+        self._tickTimers.Stop()
+        self._connectionBrokenCb(self, self.GetPeerNodeName())
+        
 
     def _SendStatusOk(self):
         self._SendHandshakeMsg("sok")
@@ -420,4 +502,5 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
     def _SendPacket(self, packet):
         msg = self.PackInt4(len(packet)) + packet
         erl_common.Debug(M, "Sending msg")
+        self._tickTimers.RestartTick()
         self.Send(msg)
