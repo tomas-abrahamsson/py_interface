@@ -21,23 +21,52 @@ class TkTest:
             # only useful if stdin might generate KeyboardInterrupt
             self.__CheckKbdInterrupt()
     
-        f = Frame(top)
-        b = Button(f, text="Send", borderwidth=1,
+        f1 = Frame(top)
+        self.destVar = StringVar()
+        self.msgVar = StringVar()
+        self.destVar.set("(\"xxsh\",\"address@xanadu\")")
+        self.msgVar.set("\"hej\"")
+        b = Button(f1, text="Send", borderwidth=1,
                    command=self.Send)
         b.pack(side=LEFT)
-        dg = Label(f, text="Dest:")
+        dg = Label(f1, text="Dest:")
+        de = Entry(f1, borderwidth=1, textvariable=self.destVar)
+        mg = Label(f1, text="Msg:")
+        me = Entry(f1, borderwidth=1, textvariable=self.msgVar)
         dg.pack(side=LEFT)
-        self.destVar = StringVar()
-        self.destVar.set("(\"xxsh\",\"address@xanadu\")")
-        de = Entry(f, borderwidth=1, textvariable=self.destVar)
         de.pack(side=LEFT)
-        mg = Label(f, text="Dest:")
         mg.pack(side=LEFT)
-        self.msgVar = StringVar()
-        self.msgVar.set("\"hej\"")
-        me = Entry(f, borderwidth=1, textvariable=self.msgVar)
         me.pack(side=LEFT)
-        f.pack()
+        f1.pack()
+
+        f2 = Frame(top)
+        b2 = Button(f2, text="SendRPC", borderwidth=1, command=self.SendRPC)
+        b2.pack(side=LEFT)
+        self.remoteNodeVar = StringVar()
+        self.modVar = StringVar()
+        self.funVar = StringVar()
+        self.argsVar = StringVar()
+        self.remoteNodeVar.set("\"'address@xanadu'\"")
+        self.modVar.set("\"'io'\"")
+        self.funVar.set("\"'format'\"")
+        self.argsVar.set("[\"hej!~nhopp!~n\", []]")
+        rnl = Label(f2, text="remotenode:")
+        rne = Entry(f2, borderwidth=1, textvariable=self.remoteNodeVar)
+        modl = Label(f2, text="mod:")
+        mode = Entry(f2, borderwidth=1, width=10, textvariable=self.modVar)
+        funl = Label(f2, text="fun:")
+        fune = Entry(f2, borderwidth=1, width=10, textvariable=self.funVar)
+        argsl = Label(f2, text="args:")
+        argse = Entry(f2, borderwidth=1, textvariable=self.argsVar)
+        rnl.pack(side=LEFT)
+        rne.pack(side=LEFT)
+        modl.pack(side=LEFT)
+        mode.pack(side=LEFT)
+        funl.pack(side=LEFT)
+        fune.pack(side=LEFT)
+        argsl.pack(side=LEFT)
+        argse.pack(side=LEFT)
+        f2.pack()
 
     def __CheckKbdInterrupt(self):
         # Exercise the Python interpreter regularly so keyboard
@@ -46,11 +75,55 @@ class TkTest:
 
     def Send(self, event=None):
         dest = eval(self.destVar.get())
-        msg = eval(self.msgVar.get())
+        msg = ExprRebuildAtoms(eval(self.msgVar.get()))
+        msgCooked = ExprRebuildAtoms(msg)
         print "Sending:"
         print "  dest=%s" % `dest`
         print "  msg =%s" % `msg`
         self.mbox.Send(dest, msg)
+
+    def SendRPC(self, event=None):
+        n = ExprRebuildAtoms(eval(self.remoteNodeVar.get()))
+        m = ExprRebuildAtoms(eval(self.modVar.get()))
+        f = ExprRebuildAtoms(eval(self.funVar.get()))
+        a = ExprRebuildAtoms(eval(self.argsVar.get()))
+        print "Sending:"
+        print "  n=%s" % `n`
+        print "  m=%s" % `m`
+        print "  f=%s" % `f`
+        print "  a=%s" % `a`
+        self.mbox.SendRPC(n, m, f, a, self._TestMBoxCallback)
+
+
+    def _TestMBoxCallback(self, msg, *x, **kw):
+        print "Incoming msg=%s" % `msg`
+
+
+
+
+def ExprRebuildAtoms(expr):
+    if type(expr) == types.StringType:
+        if len(expr) >= 2 and expr[0] == expr[-1] == "'":
+            atomText = expr[1:-1]
+            return erl_term.ErlAtom(atomText)
+        else:
+            return expr
+    elif type(expr) == types.ListType:
+        rebuiltList = []
+        for elem in expr:
+            rebuiltElem = ExprRebuildAtoms(elem)
+            rebuiltList.append(rebuiltElem)
+        return rebuiltList
+    elif type(expr) == types.TupleType:
+        rebuiltList = []
+        for elem in list(expr):
+            rebuiltElem = ExprRebuildAtoms(elem)
+            rebuiltList.append(rebuiltElem)
+        return tuple(rebuiltList)
+    else:
+        return expr
+        
+
 
 
 def __TestMBoxCallback(msg):
