@@ -156,13 +156,14 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
     ##
 
     def Alive2Req(self, portNum, nodeType, distrVSNRange, nodeName, extra, cb):
+        aliveName = string.split(nodeName, "@")[0]
         msg = (self.PackInt1(self._ALIVE2_REQ) +
                self.PackInt2(portNum) +
                self.PackInt1(nodeType) +
                self.PackInt1(0) +      # protocol: 0 = tcp/ip-v4
                self.PackInt2(distrVSNRange[0]) + 
                self.PackInt2(distrVSNRange[1]) +
-               self.PackInt2(len(nodeName)) + nodeName +
+               self.PackInt2(len(aliveName)) + aliveName +
                self.PackInt2(len(extra)) + extra)
         self._SendReq(msg, cb)
 
@@ -290,7 +291,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
         return (0, "")
 
 
-class OtpEpmd:
+class ErlEpmd:
     def __init__(self, hostName="localhost", portNum=4369):
         self._hostName = hostName
         self._portNum = portNum
@@ -309,7 +310,7 @@ class OtpEpmd:
         if not self._epmdConn.Connect(self._hostName, self._portNum):
             raise "Connection to EPMD failed"
         self.Alive2Req(self._ownPortNum, NODETYPE_HIDDEN,
-                       (0, 4), self._ownNodeName, "", self._Alive2RespCb)
+                       (5, 5), self._ownNodeName, "", self._Alive2RespCb)
 
     def Close(self):
         self.AliveCloseReq()
@@ -444,7 +445,7 @@ def main(argv):
     elif len(args) == 1:
         hostName = args[0]
 
-    e = OtpEpmd(hostName, portNum)
+    e = ErlEpmd(hostName, portNum)
     e.SetOwnPortNum(ownPortNum)
     e.SetOwnNodeName(ownNodeName)
     e.Connect(TestAlive2RespConnected, TestAlive2RespConnectFailed)
