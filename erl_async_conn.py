@@ -1,3 +1,6 @@
+import socket
+
+import erl_common
 import eventhandler
 
 
@@ -62,7 +65,6 @@ class ErlAsyncClientConnection:
             self._isConnected = 1
             self.evhandler.PushReadEvent(self._connection, self._In)
 
-
     def _SendOrQueue(self, data):
         numBytesToSend = len(data)
         try:
@@ -97,4 +99,24 @@ class ErlAsyncClientConnection:
                 pass
 
     def _In(self):
-        pass
+        print "erl_sync_conn: please override me!"
+        newData = self._connection.recv(10000)
+
+    def ReadInt1(self, s):
+        return erl_common.ReadInt1(s)
+    
+    def ReadInt2(self, s):
+        return erl_common.ReadInt2(s)
+    
+    def ReadInt4(self, s):
+        return erl_common.ReadInt4(s)
+
+    def PackInt1(self, i):
+        return erl_common.PackInt1(i)
+
+    def PackInt2(self, i):
+        return erl_common.PackInt2(i)
+
+    def PackInt4(self, i):
+        return erl_common.PackInt4(i)
+    

@@ -30,7 +30,7 @@ def Debug(s):
     print s
 
 def DebugUnrecognizedMsg(txt, msg):
-    print "Unrecognized message", s
+    print "Unrecognized message", msg
     HexDump(msg)
 
 
