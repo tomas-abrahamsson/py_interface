@@ -3,6 +3,7 @@
 import sys
 import types
 import string
+import socket
 import getopt
 from Tkinter import *
 
@@ -24,7 +25,7 @@ class TkTest:
         f1 = Frame(top)
         self.destVar = StringVar()
         self.msgVar = StringVar()
-        self.destVar.set("(\"xxsh\",\"address@xanadu\")")
+        self.destVar.set("(\"xxsh\",\"address@%s\")" % socket.gethostname())
         self.msgVar.set("\"hej\"")
         b = Button(f1, text="Send", borderwidth=1,
                    command=self.Send)
@@ -46,7 +47,7 @@ class TkTest:
         self.modVar = StringVar()
         self.funVar = StringVar()
         self.argsVar = StringVar()
-        self.remoteNodeVar.set("\"'address@xanadu'\"")
+        self.remoteNodeVar.set("\"'address@%s'\"" % socket.gethostname())
         self.modVar.set("\"'io'\"")
         self.funVar.set("\"'format'\"")
         self.argsVar.set("[\"hej!~nhopp!~n\", []]")
