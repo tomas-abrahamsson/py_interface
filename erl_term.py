@@ -35,11 +35,11 @@ import string
 import common
 import erl_common
 
-def OtpNumber(number):
+def ErlNumber(number):
     return number
 
 _atom_cache = {}
-class OtpAtom:
+class ErlAtom:
     def __init__(self, atomText, cache=-1):
         global _atom_cache
         if atomText == None and cache != -1:
@@ -55,51 +55,68 @@ class OtpAtom:
     def __repr__(self):
         return "<erl-atom: %s>" % `self.atomText`
 
+def IsErlAtom(term):
+    return type(term) == types.ClassType and isinstance(term, ErlAtom)
+
+
             
-class OtpRef:
+class ErlRef:
     def __init__(self, node, id, creation):
         self.node = node
         self.id = id                    # id is either an int or a list of ints
         self.creation = creation
     def __repr__(self):
-        return "<erl-ref, node=%s, id=%d, creation=%d>" % \
+        return "<erl-ref: node=%s, id=%d, creation=%d>" % \
                (`self.node`, self.id, self.creation)
 
-class OtpPort:
+def IsErlRef(term):
+    return type(term) == types.ClassType and isinstance(term, ErlRef)
+
+
+class ErlPort:
     def __init__(self, node, id, creation):
         self.node = node
         self.id = id
         self.creation = creation
     def __repr__(self):
-        return "<erl-port, node=%s, id=%d, creation=%d>" % \
+        return "<erl-port: node=%s, id=%d, creation=%d>" % \
                (`self.node`, self.id, self.creation)
 
-class OtpPid:
+def IsErlPort(term):
+    return type(term) == types.ClassType and isinstance(term, ErlPort)
+
+class ErlPid:
     def __init__(self, node, id, serial, creation):
         self.node = node
         self.id = id
         self.serial = serial
         self.creation = creation
     def __repr__(self):
-        return "<erl-pid, node=%s, id=%d, serial=%d, creation=%d>" % \
+        return "<erl-pid: node=%s, id=%d, serial=%d, creation=%d>" % \
                (`self.node`, self.id, self.serial, self.creation)
 
-def OtpTuple(elementsAsList):
+def IsErlPid(term):
+    return type(term) == types.ClassType and isinstance(term, ErlPid)
+
+def ErlTuple(elementsAsList):
     return tuple(elementsAsList)
 
-def OtpList(elements):
+def ErlList(elements):
     return elements
 
-class OtpBinary:
+class ErlBinary:
     def __init__(self, contets):
         self._contents = contets        #  a string
     def __repr__(self):
-        return "<erl-binary, size=%d>" % len(self._contents)
+        return "<erl-binary: size=%d>" % len(self._contents)
 
-def OtpString(s):
+def IsErlBinary(term):
+    return type(term) == types.ClassType and isinstance(term, ErlBinary)
+
+def ErlString(s):
     return s
 
-class OtpFun:
+class ErlFun:
     def __init__(self, pid, module, index, uniq, freeVars):
         self.pid = pid
         self.module = module
@@ -107,461 +124,453 @@ class OtpFun:
         self.uniq = uniq
         self.freeVars = freeVars
     def __repr__(self):
-        return "<erl-fun, pid=%s, module=%s, index=%d, uniq=%d, freeVars=%s>"%\
+        return "<erl-fun: pid=%s, module=%s, index=%d, uniq=%d, freeVars=%s>"%\
                (`self.pid`, `self.module`, self.index, self.uniq,
                 `self.freeVars`)
 
-class Unpacker:
-    INCOMPLETE = 0
 
-    def __init__(self):
-        self.Reset()
+def IsErlFun(term):
+    return type(term) == types.ClassType and isinstance(term, ErlFun)
 
-    def Reset(self):
-        self.inputBuf = ""
-        self.state = 0
+###
+### UNPACKING
+###
+def BinaryToTerm(binary):
+    (term, remaining) = _UnpackOneTerm(binary)
+    if len(remaining) != 0:
+        raise "BinaryToTerm: Extraneous data in binary"
+    return term
 
-    def Unpack(self, data):
-        self.inputBuf = self.inputBuf + data
-        (unpackedTerms, pendingData) = self._UnpackInput(self.inputBuf)
-        self.inputBuf = pendingData
-        return unpackedTerms
+def BinariesToTerms(binary):
+    (term, remaining) = BufToTerm(binary)
+    if len(remaining) != 0:
+        raise "BinaryToTerm: Extraneous data in binary"
+    return term
 
-    def _UnpackInput(self, data):
-        done = 0
-        unpackedTerms = []
-        inputData = data
-        while 1:
-            (unpackedTerm, remainingData) = self._UnpackOneTermTop(inputData)
-            if unpackedTerm == None:
-                return (unpackedTerms, remainingData)
-            unpackedTerms.append(unpackedTerm)
-            inputData = remainingData
+def BufToTerm(data):
+    unpackedTerms = []
+    inputData = data
+    while 1:
+        (unpackedTerm, remainingData) = _UnpackOneTermTop(inputData)
+        if unpackedTerm == None:
+            return (unpackedTerms, remainingData)
+        unpackedTerms.append(unpackedTerm)
+        inputData = remainingData
 
-    def _UnpackOneTermTop(self, data):
-        if len(data) == 0: 
-            return (None, data)
-        if data[0] != chr(131):
-            return (None, data)
-        return self._UnpackOneTerm(data[1:])
+def _UnpackOneTermTop(data):
+    if len(data) == 0: 
+        return (None, data)
+    if data[0] != chr(131):
+        return (None, data)
+    return _UnpackOneTerm(data[1:])
 
 
-    def _UnpackOneTerm(self, data):
-        dataLen = len(data)
+def _UnpackOneTerm(data):
+    dataLen = len(data)
 
-        if len(data) == 0:
-            return (None, data)
-
-        data0 = ord(data[0])
-        if data0 == 97:                 # small_integer_ext
-            if dataLen < 2:
-                return (None, data)
-            n = self._ReadInt1(data[1])
-            return (OtpNumber(n), data[2:])
-
-        elif data0 == 98:               # integer_ext
-            if dataLen < 5:
-                return (None, data)
-            n = self._ReadInt4(data[1:5])
-            return (OtpNumber(i), data[5:])
-
-        elif data0 == 99:               # float_ext
-            if dataLen < 32:
-                return (None, data)
-            floatData = data[1:32]
-            try:
-                nullIndex = string.index(floatData, chr(0))
-                floatStr = floatData[0:nullIndex]
-            except ValueError:
-                floatStr = floatData
-            f = string.atof(floatStr)
-            return (OtpNumber(f), data[32:])
-
-        elif data0 == 100:              # atom_ext
-            if dataLen < 3:
-                return (None, data)
-            atomLen = self._ReadInt2(data[1:3])
-            if dataLen < 3 + atomLen:
-                return (None, data)
-            atomText = data[3:3 + atomLen]
-            return (OtpAtom(atomText), data[3 + atomLen:])
-
-        elif data0 == 101:              # reference_ext
-            (node, remainingData) = self._UnpackOneTerm(data[1:])
-            if node == None:
-                return (None, data)
-            if len(remainingData) < 5:
-                return (None, data)
-            id = self._ReadId(remainingData[0:4])
-            creation = self._ReadCreation(remainingData[4])
-            return (OtpRef(node, id, creation), remainingData[5:])
-
-        elif data0 == 102:              # port_ext
-            (node, remainingData) = self._UnpackOneTerm(data[1:])
-            if node == None:
-                return (None, data)
-            if len(remainingData) < 5:
-                return (None, data)
-            id = self._ReadId(remainingData[0:4])
-            creation = self._ReadCreation(remainingData[4])
-            return (OtpPort(node, id, creation), remainingData[5:])
-
-        elif data0 == 103:              # pid_ext
-            (node, remainingData) = self._UnpackOneTerm(data[1:])
-            if node == None:
-                return (None, data)
-            if len(remainingData) < 9:
-                return (None, data)
-            id = self._ReadId(remainingData[0:4], 15)
-            serial = self._ReadInt4(remainingData[4:8])
-            creation = self._ReadCreation(remainingData[8])
-            return (OtpPid(node, id, serial, creation), remainingData[9:])
-
-        elif data0 == 104:              # small_tuple_ext
-            if dataLen < 2:
-                return (None, data)
-            arity = self._ReadInt1(data[1])
-            (elements, remainingData) = self._UnpackTermSeq(arity, data[2:])
-            if elements == None:
-                return (None, data)
-            return (OtpTuple(elements), remainingData)
-
-        elif data0 == 105:              # large_tuple_ext
-            if dataLen < 5:
-                return (None, data)
-            arity = self._ReadInt4(data[1:5])
-            (elements, remainingData) = self._UnpackTermSeq(arity, data[5:])
-            if elements == None:
-                return (None, data)
-            return (OtpTuple(elements), remainingData)
-
-        elif data0 == 106:              # nil_ext:
-            return (OtpList([]), data[1:])
-        
-        elif data0 == 107:              # string_ext
-            if dataLen < 3:
-                return (None, data)
-            strlen = self._ReadInt2(data[1:3])
-            if dataLen < 3 + strlen:
-                return (None, data)
-            s = data[3:3 + strlen]
-            return (OtpString(s), data[3 + strlen:])
-
-        elif data0 == 108:              # list_ext
-            if dataLen < 5:
-                return (None, data)
-            arity = self._ReadInt4(data[1:5])
-            (elements, remainingData) = self._UnpackTermSeq(arity, data[5:])
-            if elements == None:
-                return (None, data)
-            return (OtpList(elements), remainingData)
-
-        elif data0 == 109:              # binary_ext
-            if dataLen < 5:
-                return (None, data)
-            binlen = self._ReadInt4(data[1:5])
-            if dataLen < 5 + binlen:
-                return (None, data)
-            s = data[5:5 + binlen]
-            return (OtpBinary(s), data[5 + binlen:])
-
-        elif data0 == 110:              # small_big_ext
-            if dataLen < 2:
-                return (None, data)
-            n = self._ReadInt1(data[1])
-            if dataLen < 2 + 1 + n:
-                return (None, data)
-            sign = self._ReadInt1(data[2])
-            bignum = 0L
-            for i in range(n):
-                d = self._ReadInt1(data[3 + n - i - 1])
-                bignum = bignum * 256L + long(d)
-            if sign:
-                bignum = bignum * -1L
-            return (OtpNumber(bignum), data[3 + n:])
-
-        elif data0 == 111:              # large_big_ext
-            if dataLen < 5:
-                return (None, data)
-            n = self._ReadInt4(data[1:5])
-            if dataLen < 5 + 1 + n:
-                return (None, data)
-            sign = self._ReadInt1(data[5])
-            bignum = 0L
-            for i in range(n):
-                d = self._ReadInt1(data[6 + n - i - 1])
-                bignum = bignum * 256L + long(d)
-            if sign:
-                bignum = bignum * -1L
-            return (OtpNumber(bignum), data[6 + n:])
-
-        elif data0 == 78:               # new_cache
-            if dataLen < 4:
-                return (None, data)
-            index = self._ReadInt1(data[1])
-            atomLen = self._ReadInt2(data[2:4])
-            if dataLen < 4 + atomLen:
-                return (None, data)
-            atomText = data[4:4 + atomLen]
-            return (OtpAtom(atomText, cache=index), data[4 + atomLen:])
-
-        elif data0 == 67:               # cached_atom
-            if dataLen < 2:
-                return (None, data)
-            index = self._ReadInt1(data[1])
-            return (OtpAtom(None, cache=index), data[2:])
-
-        elif data0 == 114:              # new_reference_ext
-            if dataLen < 3:
-                return (None, data)
-            idLen = self._ReadInt2(data[1:3])
-            (node, remainingData) = self._UnpackOneTerm(data[3:])
-            if node == None:
-                return (None, data)
-            nprim = 4 * idLen
-            if len(remainingData) < 1 + nprim:
-                return (None, data)
-            creation = self._ReadCreation(remainingData[0])
-            remainingData = remainingData[1:]
-            id0 = self._ReadId(remainingData[0:4])
-            id = [id0]
-            remainingData = remainingData[4:]
-            for i in idLen:
-                i = self._ReadInt4(remainingData[0:4])
-                remainingData = remainingData[4:]
-            return (OtpRef(node, creation, id), remainingData)
-
-        elif data0 == 117:              # fun_ext
-            if dataLen < 5:
-                return (None, data)
-            freevarsLen = self._ReadInt4(data[1:5])
-            (pid, remainingData1) = self._UnpackOneTerm(data[5:])
-            if pid == None:
-                return (None, data)
-            (module, remainingData2) = self._UnpackOneTerm(remainingData1)
-            if module == None:
-                return (None, data)
-            (index, remainingData3)  = self._UnpackOneTerm(remainingData2)
-            if index == None:
-                return (None, data)
-            (uniq, remainingData4) = self._UnpackOneTerm(remainingData3)
-            if uniq == None:
-                return (None, data)
-            (freeVars, remainingData5) = self._UnpackTermSeq(freevarsLen,
-                                                             remainingData4)
-            if freeVars == None:
-                return (None, data)
-            return (OtpFun(pid, module, index, uniq, freeVars),
-                    remainingData5)
-
-        else:
-            print "Bad tag %s" % `data0`
-
-            
+    if len(data) == 0:
         return (None, data)
 
-    def _UnpackTermSeq(self, numTerms, data):
-        seq = []
-        remainingData = data
-        for i in range(numTerms):
-            (term, newRemainingData) = self._UnpackOneTerm(remainingData)
-            if term == None:
-                return (None, data)
-            seq.append(term)
-            remainingData = newRemainingData
-        return (seq, remainingData)
+    data0 = ord(data[0])
+    if data0 == 97:                 # small_integer_ext
+        if dataLen < 2:
+            return (None, data)
+        n = _ReadInt1(data[1])
+        return (ErlNumber(n), data[2:])
 
-    def _PackOneTerm(self, term):
-        pass
+    elif data0 == 98:               # integer_ext
+        if dataLen < 5:
+            return (None, data)
+        n = _ReadInt4(data[1:5])
+        return (ErlNumber(i), data[5:])
 
-    def _ReadId(self, s, maxSignificantBits = 18):
-        return self._ReadInt4(s) & ((1 << maxSignificantBits) - 1)
+    elif data0 == 99:               # float_ext
+        if dataLen < 32:
+            return (None, data)
+        floatData = data[1:32]
+        try:
+            nullIndex = string.index(floatData, chr(0))
+            floatStr = floatData[0:nullIndex]
+        except ValueError:
+            floatStr = floatData
+        f = string.atof(floatStr)
+        return (ErlNumber(f), data[32:])
 
-    def _ReadCreation(self, s):
-        return self._ReadInt1(s) & ((1 << 2) - 1)
+    elif data0 == 100:              # atom_ext
+        if dataLen < 3:
+            return (None, data)
+        atomLen = _ReadInt2(data[1:3])
+        if dataLen < 3 + atomLen:
+            return (None, data)
+        atomText = data[3:3 + atomLen]
+        return (ErlAtom(atomText), data[3 + atomLen:])
 
-    def _ReadInt1(self, s):
-        return erl_common.ReadInt1(s)
+    elif data0 == 101:              # reference_ext
+        (node, remainingData) = _UnpackOneTerm(data[1:])
+        if node == None:
+            return (None, data)
+        if len(remainingData) < 5:
+            return (None, data)
+        id = _ReadId(remainingData[0:4])
+        creation = _ReadCreation(remainingData[4])
+        return (ErlRef(node, id, creation), remainingData[5:])
+
+    elif data0 == 102:              # port_ext
+        (node, remainingData) = _UnpackOneTerm(data[1:])
+        if node == None:
+            return (None, data)
+        if len(remainingData) < 5:
+            return (None, data)
+        id = _ReadId(remainingData[0:4])
+        creation = _ReadCreation(remainingData[4])
+        return (ErlPort(node, id, creation), remainingData[5:])
+
+    elif data0 == 103:              # pid_ext
+        (node, remainingData) = _UnpackOneTerm(data[1:])
+        if node == None:
+            return (None, data)
+        if len(remainingData) < 9:
+            return (None, data)
+        id = _ReadId(remainingData[0:4], 15)
+        serial = _ReadInt4(remainingData[4:8])
+        creation = _ReadCreation(remainingData[8])
+        return (ErlPid(node, id, serial, creation), remainingData[9:])
+
+    elif data0 == 104:              # small_tuple_ext
+        if dataLen < 2:
+            return (None, data)
+        arity = _ReadInt1(data[1])
+        (elements, remainingData) = _UnpackTermSeq(arity, data[2:])
+        if elements == None:
+            return (None, data)
+        return (ErlTuple(elements), remainingData)
+
+    elif data0 == 105:              # large_tuple_ext
+        if dataLen < 5:
+            return (None, data)
+        arity = _ReadInt4(data[1:5])
+        (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
+        if elements == None:
+            return (None, data)
+        return (ErlTuple(elements), remainingData)
+
+    elif data0 == 106:              # nil_ext:
+        return (ErlList([]), data[1:])
+
+    elif data0 == 107:              # string_ext
+        if dataLen < 3:
+            return (None, data)
+        strlen = _ReadInt2(data[1:3])
+        if dataLen < 3 + strlen:
+            return (None, data)
+        s = data[3:3 + strlen]
+        return (ErlString(s), data[3 + strlen:])
+
+    elif data0 == 108:              # list_ext
+        if dataLen < 5:
+            return (None, data)
+        arity = _ReadInt4(data[1:5])
+        (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
+        if elements == None:
+            return (None, data)
+        return (ErlList(elements), remainingData)
+
+    elif data0 == 109:              # binary_ext
+        if dataLen < 5:
+            return (None, data)
+        binlen = _ReadInt4(data[1:5])
+        if dataLen < 5 + binlen:
+            return (None, data)
+        s = data[5:5 + binlen]
+        return (ErlBinary(s), data[5 + binlen:])
+
+    elif data0 == 110:              # small_big_ext
+        if dataLen < 2:
+            return (None, data)
+        n = _ReadInt1(data[1])
+        if dataLen < 2 + 1 + n:
+            return (None, data)
+        sign = _ReadInt1(data[2])
+        bignum = 0L
+        for i in range(n):
+            d = _ReadInt1(data[3 + n - i - 1])
+            bignum = bignum * 256L + long(d)
+        if sign:
+            bignum = bignum * -1L
+        return (ErlNumber(bignum), data[3 + n:])
+
+    elif data0 == 111:              # large_big_ext
+        if dataLen < 5:
+            return (None, data)
+        n = _ReadInt4(data[1:5])
+        if dataLen < 5 + 1 + n:
+            return (None, data)
+        sign = _ReadInt1(data[5])
+        bignum = 0L
+        for i in range(n):
+            d = _ReadInt1(data[6 + n - i - 1])
+            bignum = bignum * 256L + long(d)
+        if sign:
+            bignum = bignum * -1L
+        return (ErlNumber(bignum), data[6 + n:])
+
+    elif data0 == 78:               # new_cache
+        if dataLen < 4:
+            return (None, data)
+        index = _ReadInt1(data[1])
+        atomLen = _ReadInt2(data[2:4])
+        if dataLen < 4 + atomLen:
+            return (None, data)
+        atomText = data[4:4 + atomLen]
+        return (ErlAtom(atomText, cache=index), data[4 + atomLen:])
+
+    elif data0 == 67:               # cached_atom
+        if dataLen < 2:
+            return (None, data)
+        index = _ReadInt1(data[1])
+        return (ErlAtom(None, cache=index), data[2:])
+
+    elif data0 == 114:              # new_reference_ext
+        if dataLen < 3:
+            return (None, data)
+        idLen = _ReadInt2(data[1:3])
+        (node, remainingData) = _UnpackOneTerm(data[3:])
+        if node == None:
+            return (None, data)
+        nprim = 4 * idLen
+        if len(remainingData) < 1 + nprim:
+            return (None, data)
+        creation = _ReadCreation(remainingData[0])
+        remainingData = remainingData[1:]
+        id0 = _ReadId(remainingData[0:4])
+        id = [id0]
+        remainingData = remainingData[4:]
+        for i in idLen:
+            i = _ReadInt4(remainingData[0:4])
+            remainingData = remainingData[4:]
+        return (ErlRef(node, creation, id), remainingData)
+
+    elif data0 == 117:              # fun_ext
+        if dataLen < 5:
+            return (None, data)
+        freevarsLen = _ReadInt4(data[1:5])
+        (pid, remainingData1) = _UnpackOneTerm(data[5:])
+        if pid == None:
+            return (None, data)
+        (module, remainingData2) = _UnpackOneTerm(remainingData1)
+        if module == None:
+            return (None, data)
+        (index, remainingData3)  = _UnpackOneTerm(remainingData2)
+        if index == None:
+            return (None, data)
+        (uniq, remainingData4) = _UnpackOneTerm(remainingData3)
+        if uniq == None:
+            return (None, data)
+        (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,
+                                                         remainingData4)
+        if freeVars == None:
+            return (None, data)
+        return (ErlFun(pid, module, index, uniq, freeVars),
+                remainingData5)
+
+    else:
+        print "Bad tag %s" % `data0`
+
+
+    return (None, data)
+
+def _UnpackTermSeq(numTerms, data):
+    seq = []
+    remainingData = data
+    for i in range(numTerms):
+        (term, newRemainingData) = _UnpackOneTerm(remainingData)
+        if term == None:
+            return (None, data)
+        seq.append(term)
+        remainingData = newRemainingData
+    return (seq, remainingData)
+
+def _PackOneTerm(term):
+    pass
+
+def _ReadId(s, maxSignificantBits = 18):
+    return _ReadInt4(s) & ((1 << maxSignificantBits) - 1)
+
+def _ReadCreation(s):
+    return _ReadInt1(s) & ((1 << 2) - 1)
+
+def _ReadInt1(s):
+    return erl_common.ReadInt1(s)
+
+def _ReadInt2(s):
+    return erl_common.ReadInt2(s)
+
+def _ReadInt4(s):
+    return erl_common.ReadInt4(s)
+
+
+
+###
+### PACKING
+###
+def TermToBinary(term):
+    if type(term) == types.StringType:
+        return _PackString(term)
+    elif type(term) == types.ListType:
+        return _PackList(term)
+    elif type(term) == types.TupleType:
+        return _PackTuple(term)
+    elif type(term) == types.LongType:
+        return _PackLong(term)
+    elif type(term) == types.FloatType:
+        return _PackFloat(term)
+    elif type(term) == types.IntType:
+        return _PackInt(term)
+    elif IsErlAtom(term):
+        return _PackAtom(term)
+    elif IsErlRef(term):
+        return _PackRef(term)
+    elif IsErlPort(term):
+        return _PackPort(term)
+    elif IsErlPid(term):
+        return _PackPid(term)
+    elif IsErlBinary(term):
+        return _PackBinary(term)
+    elif IsErlFun(term):
+        return _PackFun(term)
+    else:
+        raise "Can't pack value of type %s" % `type(term)`
+
     
-    def _ReadInt2(self, s):
-        return erl_common.ReadInt2(s)
-    
-    def _ReadInt4(self, s):
-        return erl_common.ReadInt4(s)
+def _PackString(term):
+    if len(term) == 0:
+        return PackList([])
+    elif len(term) <= 65535:
+        return _PackInt1(107) + _PackInt2(len(term)) + term
+    else:
+        return PackList(map(lambda c: ord(c), term))
 
-class Packer:
-    def __init__(self):
-        self.Reset()
-
-    def Reset(self):
-        self.state = 0
-
-
-    def Pack(self, term):
-        return self._PackInt1(131) + self._PackOneTerm(term)
-
-    def _PackOneTerm(self, term):
-        if type(term) == types.StringType:
-            return self._PackString(term)
-        elif type(term) == types.ListType:
-            return self._PackList(term)
-        elif type(term) == types.TupleType:
-            return self._PackTuple(term)
-        elif type(term) == types.LongType:
-            return self._PackLong(term)
-        elif type(term) == types.FloatType:
-            return self._PackFloat(term)
-        elif type(term) == types.IntType:
-            return self._PackInt(term)
-        elif type(term) == types.ClassType:
-            if isinstance(term, OtpAtom):
-                return self._PackAtom(term)
-            elif isinstance(term, OtpRef):
-                return self._PackRef(term)
-            elif isinstance(term, OtpPort):
-                return self._PackPort(term)
-            elif isinstance(term, OtpPid):
-                return self._PackPid(term)
-            elif isinstance(term, OtpBinary):
-                return self._PackBinary(term)
-            elif isinstance(term, OtpFun):
-                return self._PackFun(term)
-            else:
-                raise "Can't pack instance of type %s" % `type(term)`
-        else:
-            raise "Can't pack value of type %s" % `type(term)`
-
-    
-    def _PackString(self, term):
-        if len(term) == 0:
-            return self.PackList([])
-        elif len(term) <= 65535:
-            return self._PackInt1(107) + self._PackInt2(len(term)) + term
-        else:
-            return self.PackList(map(lambda c: ord(c), term))
-
-    def _PackList(self, term):
-        if len(term) == 0:
-            return self._PackInt1(106)
-        else:
-            packedData = ""
-            for elem in term:
-                packedData = packedData + self._PackOneTerm(elem)
-            return self._PackInt1(108) + self._PackInt4(len(term)) + packedData
-
-    def _PackTuple(self, term):
-        if len(term) < 256:
-            head = self._PackInt1(104) + self._PackInt1(len(term))
-        else:
-            head = self._PackInt1(105) + self._PackInt4(len(term))
-        packedData = head
+def _PackList(term):
+    if len(term) == 0:
+        return _PackInt1(106)
+    else:
+        packedData = ""
         for elem in term:
-            packedData = packedData + self._PackOneTerm(elem)
-        return packedData
+            packedData = packedData + _PackOneTerm(elem)
+        return _PackInt1(108) + _PackInt4(len(term)) + packedData
+
+def _PackTuple(term):
+    if len(term) < 256:
+        head = _PackInt1(104) + _PackInt1(len(term))
+    else:
+        head = _PackInt1(105) + _PackInt4(len(term))
+    packedData = head
+    for elem in term:
+        packedData = packedData + _PackOneTerm(elem)
+    return packedData
 
 
-    def _PackLong(self, term):
-        if -long(0x7fffffff) - 1 <= term <= long(0x7fffffff):
-            return self._PackInt(term)
+def _PackLong(term):
+    if -long(0x7fffffff) - 1 <= term <= long(0x7fffffff):
+        return _PackInt(term)
+    else:
+        numBytesNeeded = int(math.log(term) / math.log(256)) + 1
+        if numBytesNeeded > 1:
+            return _PackInt1(111) + _PackInt4(numBytesNeeded) + \
+                   _PackLongBytes(term, numBytesNeeded)
         else:
-            numBytesNeeded = int(math.log(term) / math.log(256)) + 1
-            if numBytesNeeded > 1:
-                return self._PackInt1(111) + self._PackInt4(numBytesNeeded) + \
-                       self._PackLongBytes(term, numBytesNeeded)
-            else:
-                return self._PackInt1(110) + self._PackInt1(numBytesNeeded) + \
-                       self._PackLongBytes(term, numBytesNeeded)
+            return _PackInt1(110) + _PackInt1(numBytesNeeded) + \
+                   _PackLongBytes(term, numBytesNeeded)
 
-    def _PackLongBytes(self, term, numBytesNeeded):
-        if term < 0:
-            sign = self._PackInt(1)
-        else:
-            sign = self._PackInt(0)
-        bignum = term
-        bignumBytes = sign
-        for i in range(numBytesNeeded):
-            bignumBytes = bignumBytes + self._PackInt1(bignum & 255)
-            bignum = bignum >> 8
-        return bignumBytes
+def _PackLongBytes(term, numBytesNeeded):
+    if term < 0:
+        sign = _PackInt(1)
+    else:
+        sign = _PackInt(0)
+    bignum = term
+    bignumBytes = sign
+    for i in range(numBytesNeeded):
+        bignumBytes = bignumBytes + _PackInt1(bignum & 255)
+        bignum = bignum >> 8
+    return bignumBytes
 
-    def _PackFloat(self, term):
-        floatStr = "%.20e" % term
-        nullPadStr = self._PackInt1(0) * (31 - len(floatStr))
-        return self._PackInt1(99) + floatStr + nullPadStr
+def _PackFloat(term):
+    floatStr = "%.20e" % term
+    nullPadStr = _PackInt1(0) * (31 - len(floatStr))
+    return _PackInt1(99) + floatStr + nullPadStr
 
-    def _PackInt(self, term):
-        if 0 <= term < 256:
-            return self._PackInt1(97) + self._PackInt1(term)
-        else:
-            return self._PackInt1(98) + self._PackInt4(term)
+def _PackInt(term):
+    if 0 <= term < 256:
+        return _PackInt1(97) + _PackInt1(term)
+    else:
+        return _PackInt1(98) + _PackInt4(term)
 
-    def _PackAtom(self, term):
-        pass
+def _PackAtom(term):
+    pass
 
-    def _PackRef(self, term):
-        if type(term.id) == types.ListType:
-            return self._PackNewReferenceExt(term)
-        else:
-            return self._PackOldReferenceExt(term)
+def _PackRef(term):
+    if type(term.id) == types.ListType:
+        return _PackNewReferenceExt(term)
+    else:
+        return _PackOldReferenceExt(term)
 
-    def _PackNewReferenceExt(self, term):
-        node = self._PackOneTerm(term.node)
-        creation = self._PackCreation(term.creation)
-        id0 = self._PackId(term.id[0])
-        ids = id0
-        for id in term.id[1:]:
-            ids = ids + self._PackInt4(id)
-        return self._PackInt1(114) + self._PackInt2(len(term.id)) + \
-               node + creation + ids
+def _PackNewReferenceExt(term):
+    node = _PackOneTerm(term.node)
+    creation = _PackCreation(term.creation)
+    id0 = _PackId(term.id[0])
+    ids = id0
+    for id in term.id[1:]:
+        ids = ids + _PackInt4(id)
+    return _PackInt1(114) + _PackInt2(len(term.id)) + \
+           node + creation + ids
 
-    def _PackNewReferenceExt(self, term):
-        node = self._PackOneTerm(term.node)
-        id = self._PackId(term.id)
-        creation = self._PackCreation(term.creation)
-        return self._PackInt1(101) + node + id + creation
+def _PackNewReferenceExt(term):
+    node = _PackOneTerm(term.node)
+    id = _PackId(term.id)
+    creation = _PackCreation(term.creation)
+    return _PackInt1(101) + node + id + creation
 
-    def _PackPort(self, term):
-        node = self._PackOneTerm(term.node)
-        id = self._PackId(term.id)
-        creation = self._PackCreation(term.creation)
-        return self._PackInt1(102) + node + id + creation
+def _PackPort(term):
+    node = _PackOneTerm(term.node)
+    id = _PackId(term.id)
+    creation = _PackCreation(term.creation)
+    return _PackInt1(102) + node + id + creation
 
-    def _PackPid(self, term):
-        node = self._PackOneTerm(term.node)
-        id = self._PackId(term.id, 15)
-        serial = self._PackInt4(term.serial)
-        creation = self._PackCreation(term.creation)
-        return self._PackInt1(102) + node + id + serial + creation
+def _PackPid(term):
+    node = _PackOneTerm(term.node)
+    id = _PackId(term.id, 15)
+    serial = _PackInt4(term.serial)
+    creation = _PackCreation(term.creation)
+    return _PackInt1(102) + node + id + serial + creation
 
-    def _PackBinary(self, term):
-        return self._PackInt1(109) + self._PackInt4(len(term.contents)) + \
-               term.contents
+def _PackBinary(term):
+    return _PackInt1(109) + _PackInt4(len(term.contents)) + term.contents
 
-    def _PackFun(self, term):
-        numFreeVars = self._PackInt4(len(term.freeVars))
-        pid = self._PackPid(term.pid)
-        module = self._PackAtom(term.module)
-        index = self._PackInt(term.index)
-        uniq = self._PackInt(term.uniq)
-        freeVars = ""
-        for freeVar in term.freeVars:
-            freeVars = freeVars + self._PackOneTerm(freeVar)
-        return self._PackInt4(117) + numFreeVars + \
-               pid + module + index + uniq + freeVars
+def _PackFun(term):
+    numFreeVars = _PackInt4(len(term.freeVars))
+    pid = _PackPid(term.pid)
+    module = _PackAtom(term.module)
+    index = _PackInt(term.index)
+    uniq = _PackInt(term.uniq)
+    freeVars = ""
+    for freeVar in term.freeVars:
+        freeVars = freeVars + _PackOneTerm(freeVar)
+    return _PackInt4(117) + numFreeVars + \
+           pid + module + index + uniq + freeVars
 
 
-    def _PackId(self, i, maxSignificantBits=18):
-        return self._PackInt4(i & ((1 << maxSignificantBits) - 1))
+def _PackId(i, maxSignificantBits=18):
+    return _PackInt4(i & ((1 << maxSignificantBits) - 1))
 
-    def _PackCreation(self, i):
-        return self._PackInt1(i & ((1 << 2) - 1))
+def _PackCreation(i):
+    return _PackInt1(i & ((1 << 2) - 1))
 
-    def _PackInt1(self, i):
-        return erl_common.PackInt1(i)
+def _PackInt1(i):
+    return erl_common.PackInt1(i)
 
-    def _PackInt2(self, i):
-        return erl_common.PackInt2(i)
+def _PackInt2(i):
+    return erl_common.PackInt2(i)
 
-    def _PackInt4(self, i):
-        return erl_common.PackInt4(i)
+def _PackInt4(i):
+    return erl_common.PackInt4(i)
 
