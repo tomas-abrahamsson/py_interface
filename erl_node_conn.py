@@ -40,8 +40,6 @@ class Ticker:
         self._noResponseCb = noResponseCb
         self._noResponseTimeout = netTickTime * 1.25
         self._responseCheckTimeout = netTickTime * 0.25
-        print "resonse-check: noResponseTimeout=%g" %self._noResponseTimeout
-        print "resonse-check: checkTimeout=%g" %self._responseCheckTimeout
         self._responseDoCheck = 1
         self._timeForLastResponse = time.time()
         self._StartResponseTimer()
@@ -57,15 +55,12 @@ class Ticker:
         self._responseDoCheck = 0
 
     def GotResonse(self):
-        print "%g: got resonse" % time.time()
         self._timeForLastResponse = time.time()
 
     def _CheckResponse(self):
-        print "%g: checking resonse..." % time.time()
         if self._responseDoCheck:
             now = time.time()
             if now > self._timeForLastResponse + self._noResponseTimeout:
-                print "checking resonse: no response"
                 self._responseDoCheck = 0
                 self._noResponseCb()
             else:
@@ -75,8 +70,6 @@ class Ticker:
         self._timeToTickCb = timeToTickCb
         self._tickTimeout = netTickTime * 0.25
         self._tickCheckTimeout = netTickTime * 0.125
-        print "tickTimeout=%g" % self._tickTimeout
-        print "tickCheckTimeout=%g" % self._tickCheckTimeout
         self._tickDoCheck = 1
         self._timeForLastTick = time.time()
         self._StartTickTimer()
@@ -96,11 +89,9 @@ class Ticker:
 
     def _Tick(self):
         if self._tickDoCheck:
-            print "Checking tick..."
             self._StartTickTimer()
             now = time.time()
             if now > self._timeForLastTick + self._tickTimeout:
-                print "ticking..."
                 self._timeToTickCb()
                 self._timeForLastTick = time.time()
 
