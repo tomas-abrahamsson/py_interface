@@ -106,7 +106,7 @@ class EVCallback:
             raise
 
     def __repr__(self):
-        return "<VCallback to %s>" % `self.callback`
+        return "<EVCallback to %s>" % `self.callback`
 
 
 _nextTimerId = 0
