@@ -57,6 +57,8 @@ class ErlAtom:
             self.atomText = atomText
     def __repr__(self):
         return "<erl-atom: %s>" % `self.atomText`
+    def equals(self, other):
+        return self.atomText == other.atomText
 
 def IsErlAtom(term):
     """Checks whether a term is an Erlang atom or not."""
@@ -76,6 +78,10 @@ class ErlRef:
     def __repr__(self):
         return "<erl-ref: node=%s, id=%d, creation=%d>" % \
                (`self.node`, self.id, self.creation)
+    def equals(self, other):
+        return self.node.equals(other.node) and \
+               self.id == other.id and \
+               self.creation == other.creation
 
 def IsErlRef(term):
     """Checks whether a term is an Erlang reference or not."""
@@ -95,6 +101,10 @@ class ErlPort:
     def __repr__(self):
         return "<erl-port: node=%s, id=%d, creation=%d>" % \
                (`self.node`, self.id, self.creation)
+    def equals(self, other):
+        return self.node.equals(other.node) and \
+               self.id == other.id and \
+               self.creation == other.creation
 
 def IsErlPort(term):
     """Checks whether a term is an Erlang reference or not."""
@@ -115,6 +125,11 @@ class ErlPid:
     def __repr__(self):
         return "<erl-pid: node=%s, id=%d, serial=%d, creation=%d>" % \
                (`self.node`, self.id, self.serial, self.creation)
+    def equals(self, other):
+        return self.node.equals(other.node) and \
+               self.id == other.id and \
+               self.serial == other.serial and \
+               self.creation == other.creation
 
 def IsErlPid(term):
     """Checks whether a term is an Erlang process id or not."""
@@ -136,6 +151,8 @@ class ErlBinary:
         self.contents = contets        #  a string
     def __repr__(self):
         return "<erl-binary: size=%d>" % len(self.contents)
+    def equals(self, other):
+        return self.contents == other.contents
 
 def IsErlBinary(term):
     """Checks whether a term is an Erlang binary or not."""
@@ -163,6 +180,12 @@ class ErlFun:
         return "<erl-fun: pid=%s, module=%s, index=%d, uniq=%d, freeVars=%s>"%\
                (`self.pid`, `self.module`, self.index, self.uniq,
                 `self.freeVars`)
+    def equals(self, other):
+        return self.pid.equals(other.pid) and \
+               self.module.equals(other.module) and \
+               self.index == other.index and \
+               self.uniq == other.uniq and \
+               self.freeVars == other.freeVars
 
 
 def IsErlFun(term):
