@@ -41,6 +41,7 @@ TESTPROGRAMS = test_erl_epmd.py \
 OBJECTS = 
 
 DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
+        py_interface.pub \
         Makefile.in configure configure.in \
         mkinstalldirs install-sh
 
