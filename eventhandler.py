@@ -47,6 +47,14 @@ def GetEventHandler():
         _evhandler = _EventHandler()
     return _evhandler
 
+def SetEventHandlerStateTk(top):
+    evhandler = GetEventHandler()
+    evhandler.SetStateTk(top)
+
+def SetEventHandlerStateStandalone():
+    evhandler = GetEventHandler()
+    evhandler.SetStateStandAlone()
+
 ###
 ### End of API
 ### ---------------------------------------------------
@@ -78,6 +86,10 @@ class _EventHandler:
     STATE_STANDALONE = 1
     STATE_TK = 2
 
+    READ = 1
+    WRITE = 2
+    EXCEPT = 4
+
     def __init__(self):
         # mappings of connection --> callback
         self.readEvents = {}
@@ -93,12 +105,8 @@ class _EventHandler:
         self.tkTopLevel = None
 
     def _SetStateTk(self, topLevel):
-        """Not supported for now.
-        State that we are using eventhandler in Tkinter.
-        When using the Tkinter eventhandler, you cannot:
-        * add a read-handler, then add a write-handler for the same connection,
-          and then delete one of the read or write handler: both gets deleted.
-        * delete timer-events."""
+        """State that we are using eventhandler in Tkinter.
+Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         self.state = self.STATE_TK
         self.tkTopLevel = topLevel
 
@@ -115,6 +123,9 @@ class _EventHandler:
             handlers = []
         newHandlers = self._PushHandler(cb, handlers)
         self.readEvents[connection] = newHandlers
+        if self.state == self.STATE_TK:
+            self._TkPushFileHandler(self.READ, connection)
+            
 
     def PopReadEvent(self, connection):
         handlers = self.readEvents[connection]
@@ -123,6 +134,8 @@ class _EventHandler:
             del self.readEvents[connection]
         else:
             self.readEvents[connection] = newHandlers
+        if self.state == self.STATE_TK:
+            self._TkPopFileHandler(self.READ, connection)
 
 
     def PushWriteEvent(self, connection, cbfunction, *optArgs, **namedArgs):
@@ -133,6 +146,8 @@ class _EventHandler:
             handlers = []
         newHandlers = self._PushHandler(cb, handlers)
         self.writeEvents[connection] = newHandlers
+        if self.state == self.STATE_TK:
+            self._TkPushFileHandler(self.WRITE, connection)
 
     def PopWriteEvent(self, connection):
         handlers = self.writeEvents[connection]
@@ -141,6 +156,8 @@ class _EventHandler:
             del self.writeEvents[connection]
         else:
             self.writeEvents[connection] = newHandlers
+        if self.state == self.STATE_TK:
+            self._TkPopFileHandler(self.WRITE, connection)
 
 
     def PushExceptEvent(self, connection, cbfunction, *optArgs, **namedArgs):
@@ -151,6 +168,8 @@ class _EventHandler:
             handlers = []
         newHandlers = self._PushHandler(cb, handlers)
         self.exceptEvents[connection] = newHandlers
+        if self.state == self.STATE_TK:
+            self._TkPushFileHandler(self.EXCEPT, connection)
 
     def PopExceptEvent(self, connection):
         handlers = self.exceptEvents[connection]
@@ -159,16 +178,24 @@ class _EventHandler:
             del self.exceptEvents[connection]
         else:
             self.exceptEvents[connection] = newHandlers
+        if self.state == self.STATE_TK:
+            self._TkPopFileHandler(self.EXCEPT, connection)
 
 
     def AddTimerEvent(self, timeLeft, cbfunction, *optArgs, **namedArgs):
         cb = common.VCallback(cbfunction, optArgs, namedArgs)
-        newTimerEvent = _TimerEvent(timeLeft, cb)
-        self.timerEvents.append(newTimerEvent)
-        self.timerEvents.sort()
-        return newTimerEvent.id
+        if self.state == self.STATE_STANDALONE:
+            newTimerEvent = _TimerEvent(timeLeft, cb)
+            self.timerEvents.append(newTimerEvent)
+            self.timerEvents.sort()
+            return newTimerEvent.id
+        elif self.state == self.STATE_TK:
+            return tkinter.createtimerhandler(round(timeLeft * 1000), cb)
 
     def DelTimerEvent(self, id):
+        if self.state == self.STATE_TK:
+            raise "Cannot delete timer events when using tk"
+
         indexForId = None
         it = map(None, range(len(self.timerEvents)), self.timerEvents)
         for i, ev in it:
@@ -179,6 +206,16 @@ class _EventHandler:
             del self.timerEvents[indexForId]
 
     def Loop(self):
+        if self.state == self.STATE_TK:
+            self.__LoopTk()
+        elif self.state == self.STATE_STANDALONE:
+            self.__LoopStandalone()
+
+
+    def __LoopTk(self):
+        self.tkTopLevel.mainloop()
+
+    def __LoopStandalone(self):
         self.continueLooping = 1
         while self.continueLooping:
             rList = self.readEvents.keys()
@@ -251,3 +288,33 @@ class _EventHandler:
 
     def _PopHandler(self, handlers):
         return handlers[1:]
+
+    def _TkPushFileHandler(self, eventType, connection):
+        fileNum = connection.fileno()
+        if eventType == self.READ:
+            cb = readEvents[connection][0]
+            tkinter.createfilehandler(fileNum, tkinter.READABLE, cb)
+        elif eventType == self.WRITE:
+            cb = writeEvents[connection][0]
+            tkinter.createfilehandler(fileNum, tkinter.WRITABLE, cb)
+        elif eventType == self.EXCEPT:
+            cb = exceptEvents[connection][0]
+            tkinter.createfilehandler(fileNum, tkinter.EXCEPTION, cb)
+
+    def _TkPopFileHandler(self, eventType, connection):
+        fileNum = connection.fileno()
+        ## In tkinter, all handlers (readable as well as writable/exception)
+        ## are deleted when we delete a handler.
+        ## The net result is that the code is all the same no matter
+        ## what type of handler we delete.
+        tkinter.deletefilehandler(fileNum)
+        if self.readEvents.has_key(connection):
+            cb = self.readEvents[connection][0]
+            tkinter.createfilehandler(fileNum, tkinter.READABLE, cb)
+        if self.writeEvents.has_key(connection):
+            cb = self.writeEvents[connection][0]
+            tkinter.createfilehandler(fileNum, tkinter.WRITABLE, cb)
+        if self.exceptEvents.has_key(connection):
+            cb = self.exceptEvents[connection][0]
+            tkinter.createfilehandler(fileNum, tkinter.EXCEPTION, cb)
+
