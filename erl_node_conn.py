@@ -16,21 +16,58 @@ import erl_eventhandler
 M = "erl_node_conn"
 
 def CheckDigest(digest, challenge, cookie):
+    """Checks that a digest is correct.
+    DIGEST      = string
+    CHALLENGE   = integer | longinteger
+    COOKIE      = string
+    
+    Returns: 1 | 0
+    Throws:  nothing
+    """
     expectedDigest = GenDigest(challenge, cookie)
     return expectedDigest == digest
         
 def GenDigest(challenge, cookie):
+    """Generates a digest from a CHALLENGE and a COOKIE.
+    CHALLENGE   = integer | longinteger
+    COOKIE      = string
+    
+    Returns: string
+    Throws:  nothing
+    """
     challengeStr = str(challenge)
     if challengeStr[-1] == 'L':
         challengeStr = challengeStr[:-1]
     return md5.new(cookie + challengeStr).digest()
 
 def GenChallenge():
+    """Generates a challenge.
+    No arguments.
+    Returns: integer
+    Throws:  nothing
+    """
     return int(random.random() * 0x7fffffff)
 
 
 class Ticker:
+    """This class is used for keeping track of the net-ticks:
+    * when a remote node has been silent for too long
+    * when it's time to send a tick so the other part won't think
+      we've been silent for to long (to `tick').
+    """
+
     def __init__(self, netTickTime, timeToTickCb, noResponseCb):
+        """Constructor
+        NET-TICK-TIME   = integer
+                        the net-tick-time (in seconds).
+        TIME-TO-TICK-CB = <function(): void>
+                        callback to call when it's time to tick.
+        NO-RESPONSE-CB  = <function(): void>
+                        callback to call when the other end has been
+                        silent for too long.
+
+        Throws:  nothing
+        """
         self._netTickTime = netTickTime
         self._evhandler = erl_eventhandler.GetEventHandler()
         self._InitStartResponseTimer(netTickTime, noResponseCb)
@@ -55,6 +92,11 @@ class Ticker:
         self._responseDoCheck = 0
 
     def GotResonse(self):
+        """To be called whenever data has been received from the other end.
+        No arguments.
+        Returns: void
+        Throws:  nothing
+        """
         self._timeForLastResponse = time.time()
 
     def _CheckResponse(self):
@@ -85,6 +127,11 @@ class Ticker:
         self._tickDoCheck = 0
 
     def RestartTick(self):
+        """To be called whenever something has been sent to the other end.
+        No arguments.
+        Returns: void
+        Throws:  nothing
+        """
         self._timeForLastTick = time.time()
 
     def _Tick(self):
@@ -96,10 +143,22 @@ class Ticker:
                 self._timeForLastTick = time.time()
 
     def Stop(self):
+        """Stop the timers.
+        No arguments.
+        Returns: void
+        Throws:  nothing
+        """
         self._StopResponseTimer()
         self._StopTickTimer()
 
 class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
+    """This class handles a connection _to_ another node,
+    initiated by this node.
+
+    Inheritance: erl_async_conn.ErlAsyncClientConnection
+
+    This is intended to be used by the erl_node.ErlNode class.
+    """
     _STATE_DISCONNECTED = -1
     _STATE_HANDSHAKE_RECV_STATUS = 2
     _STATE_HANDSHAKE_RECV_CHALLENGE = 4
@@ -107,6 +166,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     _STATE_CONNECTED = 7
 
     def __init__(self, nodeName, opts):
+        """Constructor.
+        NODE-NAME = string
+        OPTS      = <instance of erl_opts.ErlNodeOpts>
+
+        Throws:  nothing
+        """
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
         self._recvdata = ""
         self._hostName = None
@@ -123,6 +188,29 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     def InitiateConnection(self, hostName, portNum,
                            connectOkCb, connectFailedCb, connectionBrokenCb,
                            passThroughMsgCb):
+        """Initiates a connection to another erlang-node.
+        HOST-NAME            = string
+                             The node to connect to.
+        PORT-NUM             = integer
+                             The port on that node. Use the EPMD to find
+                             the port number, given a node name.
+        CONNECT-OK-CB        = <function(): void>
+                             To be called when a connection has been
+                             successfully established.
+        CONNECT-FAILED-CB    = <function(CONNECTION, PEER-NAME): void>
+                             CONNECTION = ErlNodeOutConnection
+                             PEER-NAME = string (the node name for the peer)
+                             To be called when a connection establishment
+                             failed.
+        CONNECTION-BROKEN-CB = <function(CONNECTION, PEER-NAME): void>
+                             CONNECTION = ErlNodeOutConnection
+                             PEER-NAME = string (the node name for the peer)
+                             To be called when an established connection
+                             has been broken.
+
+        Returns: void
+        Throws:  <<to-be-documented>>
+        """
         self._hostName = hostName
         self._portNum = portNum
         self._connectOkCb = connectOkCb
@@ -137,9 +225,24 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             return 0
 
     def GetPeerNodeName(self):
+        """Retrieves the node name for the peer.
+        No arguments.
+        Returns: string | ""
+        Throws:  nothing
+        """
         return self._peerName
 
     def SendMsg(self, ctrlMsg, msg=None):
+        """Sends a message to the other end.
+        CTRL-MSG   = term
+        MSG        (optional) = None | term
+
+        Returns: void
+        Throws:  nothing
+
+        For information on the CTRL-MSG and the MSG, please refer to the file
+        erl_ext_dist.txt in the Erlang distribution.
+        """
         if msg == None:
             packet = "p" + erl_term.TermToBinary(ctrlMsg)
         else:
@@ -277,9 +380,16 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
     def _Tick(self):
+        """This callback is called by the Ticker class instance
+        when it is time to send a tick to the other end, to indicate that
+        we are still alive.
+        """
         self._SendPacket("")
 
     def _NoResponse(self):
+        """This callback is called by the Ticker class instance
+        when nothing has been received from the other end for too long.
+        """
         erl_common.Debug(M, "InConnection: Connection broken")
         self._state = self._STATE_DISCONNECTED
         self._tickTimers.Stop()
@@ -316,7 +426,20 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
 class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
+    """This class opens a socket and for incoming connections from other
+    Erlang nodes. When a remote node connects, an new instance of
+    the ErlNodeInConnection is created for handling the new connection.
+
+    This class is indended to be used by the erl_node.ErlNode.
+    """
     def __init__(self, nodeName, opts):
+        """Constructor
+        NODE-NAME = string
+                  The name of this node
+        OPTS      = <instance of erl_opts.ErlNodeOpts>
+
+        Throws:  nothing
+        """
         erl_async_conn.ErlAsyncServer.__init__(self)
         self._nodeName = nodeName
         self._opts = opts
@@ -325,6 +448,34 @@ class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
         self._nodeDownCb = self._Sink
 
     def Start(self, nodeUpCb, nodeDownCb, passThroughMsgCb):
+        """Setup and start to listen for incoming connections.
+
+        NODE-UP-CB          = <function(CONNECTION, PEER-NAME): void>
+                            Callback to call when a new connection has been
+                            established.
+        NODE-DOWN-CB        = <function(CONNECTION, PEER-NAME): void>
+                            Callback to call when an established connection
+                            has been broken.
+        PASS-THROUGH-MSG-CB = <function(CONNECTION, PEER-NAME, CTRL-MSG, [MSG])
+                                       : void>
+                            Callback to call for pass-through messages.
+                            Currently, all messages incoming messages are
+                            of this type.
+        (Sub)Types:
+
+          CONNECTION = <instance of ErlNodeInConnection>
+                     The instance of the class that handles the connection
+          PEER-NAME  = string
+                     The node name for the peer node
+          CTRL-MSG   = term
+          MSG        = term
+                     For information on CTRL-MSG and MSG, see the
+                     file erl_ext_dist.txt, which is included in the
+                     Erlang distribution.
+
+        Returns: void
+        Throws:  <<to-be-documented>>
+        """
         self._nodeUpCb = nodeUpCb
         self._nodeDownCb = nodeDownCb
         self._passThroughMsgCb = passThroughMsgCb
@@ -341,6 +492,25 @@ class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
         pass
 
 class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
+    """This class handles incoming connections from other Erlang nodes.
+
+    This class is indended to be used by the ErlNodeSocketServer
+    (and thus indirectly by the erl_node.ErlNode).
+    """
+
+    ## XXX TODO: This node duplicates too much functionality
+    ##     from ErlNodeOutConnection, still there are differences.
+    ##
+    ##     The differences are in the setting up of the connection;
+    ##     during the handshake sequence, the connecting side
+    ##     (ErlNodeOutConnection) acts the client, while the connected
+    ##     side (ErlNodeInConnection) acts as server.
+    ##
+    ##     One idea is to maybe separate the state-machine
+    ##     into its own class.
+    ##
+    ##     Need to think about this one...
+
     _STATE_DISCONNECTED = -1
     _STATE_HANDSHAKE_RECV_NAME = 1
     _STATE_HANDSHAKE_RECV_STATUS = 3
@@ -350,6 +520,26 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
     def __init__(self, sock, nodeName, opts,
                  newConnectionUpCb, connectionBrokenCb,
                  passThroughMsgCb):
+        """Constructor.
+        SOCK                 = <socket>
+                               The socket for the incoming connection.
+        NODE-NAME            = string
+                               The node name of the node to which this
+                               connection belongs.
+        OPTS                 = <instance of erl_opts.ErlNodeOpts>
+                               Options for the node
+        NEW-CONNECTION-UP-CB = <function(CONNECTION, PEER-NAME): void>
+                               Callback to call when a new connection has been
+                               established.
+        CONNECTION-BROKEN-CB = <function(CONNECTION, PEER-NAME): void>
+                               Callback to call when an established connection
+                               has been broken.
+        PASS-THROUGH-MSG-CB  = <function(CONNECTION, PEER-NAME,
+                                         CTRL-MSG, [MSG]): void>
+                               Callback to call for pass-through messages.
+                               Currently, all messages incoming messages are
+                               of this type.
+        """
         erl_async_conn.ErlAsyncPeerConnection.__init__(self, sock)
         self._recvdata = ""
         self._hostName = None
@@ -367,9 +557,24 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._tickTimers = None
 
     def GetPeerNodeName(self):
+        """Retrieves the node name for the peer.
+        No arguments.
+        Returns: string | ""
+        Throws:  nothing
+        """
         return self._peerName
 
     def SendMsg(self, ctrlMsg, msg=None):
+        """Sends a message to the other end.
+        CTRL-MSG   = term
+        MSG        (optional) = None | term
+
+        Returns: void
+        Throws:  nothing
+
+        For information on the CTRL-MSG and the MSG, please refer to the file
+        erl_ext_dist.txt in the Erlang distribution.
+        """
         if msg == None:
             packet = "p" + erl_term.TermToBinary(ctrlMsg)
         else:
@@ -488,9 +693,16 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             
 
     def _Tick(self):
+        """This callback is called by the Ticker class instance
+        when it is time to send a tick to the other end, to indicate that
+        we are still alive.
+        """
         self._SendPacket("")
 
     def _NoResponse(self):
+        """This callback is called by the Ticker class instance
+        when nothing has been received from the other end for too long.
+        """
         erl_common.Debug(M, "InConnection: Connection broken")
         self._state = self._STATE_DISCONNECTED
         self._tickTimers.Stop()

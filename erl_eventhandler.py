@@ -41,17 +41,41 @@ _evhandler = None
 ###
 
 def GetEventHandler():
+    """Retrieve the eventhandler.
+    No arguments.
+    Returns: <instance of the EventHandler singleton>
+    Throws:  nothing
+    """
     global _evhandler
 
     if _evhandler == None:
+        ## This is the first call to the event handler. It has not been
+        ## created yet, so create it first.
         _evhandler = _EventHandler()
     return _evhandler
 
 def SetEventHandlerStateTk(top):
+    """Sets up the event handler to use Tkinter's mainloop.
+
+    TOP = <instance of Tk>
+
+    Returns: void
+    Throws:  nothing
+    
+    Call this when you want to use the event handler in a program that uses
+    Tkinter. The argument is expected to be the object that's returned by
+    a call to Tkinter.Tk().
+    """
     evhandler = GetEventHandler()
     evhandler._SetStateTk(top)
 
 def SetEventHandlerStateStandalone():
+    """Sets up the event handler to use its own mainloop. This is the default.
+
+    No arguments
+    Returns: void
+    Throws:  nothing
+    """
     evhandler = GetEventHandler()
     evhandler._SetStateStandAlone()
 
@@ -60,6 +84,13 @@ def SetEventHandlerStateStandalone():
 ### ---------------------------------------------------
 
 class EVCallback:
+    """This class is intended to be used by the _EventHandler class.
+    It differs from erl_common.VCallback in that it does not
+    tack on any extra arguments to the front. This is because tkinter
+    sends some extra arguments to the callback, so the arguments to
+    callbacks would have been depended on whether the event handler
+    is in tkinter-state or not.
+    """
     def __init__(self, callback, optArgs, namedArgs):
         self.callback = callback
         self.optArgs = optArgs
@@ -135,6 +166,19 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def PushReadEvent(self, connection, cbfunction, *optArgs, **namedArgs):
+        """Register a callback to be called when there's data to read
+        on a connection. Or really, push the the callback onto the
+        stack of read-callbacks for the connection. Only the first callback
+        on the stack is called.
+
+        CONNECTION    = <any object that has a fileno() method>
+        CB-FUNCTION   = <function(OPT-ARG ..., NAMED-ARG ...): void>
+        OPT-ARG ...   = <any arguments>
+        NAMED-ARG ... = <any named arguments>
+
+        Returns: void
+        Throws:  nothing
+        """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.readEvents.has_key(connection):
             handlers = self.readEvents[connection]
@@ -147,6 +191,14 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             
 
     def PopReadEvent(self, connection):
+        """Unregister a read callback for a connection.
+        Or really, pop it from the stack of callbacks.
+
+        CONNECTION    = <any object that has a fileno() method>
+        
+        Returns: void
+        Throws:  nothing
+        """
         handlers = self.readEvents[connection]
         newHandlers = self._PopHandler(handlers)
         if len(newHandlers) == 0:
@@ -158,6 +210,19 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def PushWriteEvent(self, connection, cbfunction, *optArgs, **namedArgs):
+        """Register a callback to be called when there's data to write
+        to a connection. Or really, push the the callback onto the
+        stack of write-callbacks for the connection. Only the first callback
+        on the stack is called.
+
+        CONNECTION    = <any object that has a fileno() method>
+        CB-FUNCTION   = <function(OPT-ARG ..., NAMED-ARG ...): void>
+        OPT-ARG ...   = <any arguments>
+        NAMED-ARG ... = <any named arguments>
+
+        Returns: void
+        Throws:  nothing
+        """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.writeEvents.has_key(connection):
             handlers = self.writeEvents[connection]
@@ -169,6 +234,14 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             self._TkPushFileHandler(self.WRITE, connection)
 
     def PopWriteEvent(self, connection):
+        """Unregister a write callback for a connection.
+        Or really, pop it from the stack of callbacks.
+
+        CONNECTION    = <any object that has a fileno() method>
+        
+        Returns: void
+        Throws:  nothing
+        """
         handlers = self.writeEvents[connection]
         newHandlers = self._PopHandler(handlers)
         if len(newHandlers) == 0:
@@ -180,6 +253,19 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def PushExceptEvent(self, connection, cbfunction, *optArgs, **namedArgs):
+        """Register a callback to be called when there's an exception
+        on a connection. Or really, push the the callback onto the
+        stack of exception-callbacks for the connection.
+        Only the first callback on the stack is called.
+
+        CONNECTION    = <any object that has a fileno() method>
+        CB-FUNCTION   = <function(OPT-ARG ..., NAMED-ARG ...): void>
+        OPT-ARG ...   = <any arguments>
+        NAMED-ARG ... = <any named arguments>
+
+        Returns: void
+        Throws:  nothing
+        """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.exceptEvents.has_key(connection):
             handlers = self.exceptEvents[connection]
@@ -191,6 +277,14 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             self._TkPushFileHandler(self.EXCEPT, connection)
 
     def PopExceptEvent(self, connection):
+        """Unregister an exception callback for a connection.
+        Or really, pop it from the stack of callbacks.
+
+        CONNECTION    = <any object that has a fileno() method>
+        
+        Returns: void
+        Throws:  nothing
+        """
         handlers = self.exceptEvents[connection]
         newHandlers = self._PopHandler(handlers)
         if len(newHandlers) == 0:
@@ -202,6 +296,17 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def AddTimerEvent(self, timeLeft, cbfunction, *optArgs, **namedArgs):
+        """Register a callback to be called after a certain amount of time.
+
+        TIME-LEFT     = integer | float
+                      Timeout (in seconds) for the timer
+        CB-FUNCTION   = <function(OPT-ARG ..., NAMED-ARG ...): void>
+        OPT-ARG ...   = <any arguments>
+        NAMED-ARG ... = <any named arguments>
+
+        Returns: timer-id
+        Throws:  nothing
+        """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
         if self.state == self.STATE_STANDALONE:
             newTimerEvent = _TimerEvent(timeLeft, cb)
@@ -212,6 +317,15 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             return tkinter.createtimerhandler(round(timeLeft * 1000), cb)
 
     def DelTimerEvent(self, id):
+        """Unregister a timer callback.
+
+        TIMER-ID      = timer-id
+
+        Returns: nothing
+        Throws:  "Cannot delete timer events when using tk"
+
+        Note that it is not possible to unregister timer events when using Tk.
+        """
         if self.state == self.STATE_TK:
             raise "Cannot delete timer events when using tk"
 
@@ -225,6 +339,12 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             del self.timerEvents[indexForId]
 
     def Loop(self):
+        """Start the event handler.
+
+        No arguments:
+        Returns: void
+        Throws:  nothing
+        """
         if self.state == self.STATE_TK:
             self.__LoopTk()
         elif self.state == self.STATE_STANDALONE:
@@ -299,7 +419,13 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
 
     def StopLooping(self):
-        """Clients can use this in callbacks to stop the event handler loop"""
+        """Start the event handler.
+
+        No arguments:
+        Returns: void
+        Throws:  nothing
+
+        This can use in e.g. callbacks to stop the event handler loop."""
         self.continueLooping = 0
 
     def _PushHandler(self, cb, handlers):

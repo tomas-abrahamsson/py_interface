@@ -3,13 +3,22 @@ import string
 import socket
 
 def ReadInt1(s):
+    """Convert first byte from a string to an unsigned 8-bit integer."""
     return ord(s[0])
     
 def ReadInt2(s):
+    """Convert first two bytes from a string to an unsigned 16-bit integer."""
     return (ord(s[0]) << 8) + \
            (ord(s[1]) << 0)
     
 def ReadInt4(s):
+    """Convert first four bytes from a string to an unsigned 32-bit integer.
+
+    Returns integer | long
+
+    In Python on a 32-bit machine, integers are signed and within
+    the range -2^31 .. (2^31 - 1). If the 32-bit integer fits within this
+    range, an integer is returned, otherwise a long is returned."""
     l4 = (long(ord(s[0])) << 24) + \
          (ord(s[1]) << 16) + \
          (ord(s[2]) <<  8) + \
@@ -22,13 +31,16 @@ def ReadInt4(s):
 
 
 def PackInt1(i):
+    """Converts an unsigned 8-bit integer/long into a string, 1 byte long."""
     return chr(i & 255)
 
 def PackInt2(i):
+    """Converts an unsigned 16-bit integer/long into a string, 2 byte long."""
     return chr((i >> 8) & 255) + \
            chr((i >> 0) & 255)
 
 def PackInt4(i):
+    """Converts an unsigned 32-bit integer/long into a string, 4 byte long."""
     return chr((i >> 24) & 255) + \
            chr((i >> 16) & 255) + \
            chr((i >>  8) & 255) + \
@@ -36,12 +48,33 @@ def PackInt4(i):
 
 
 def AlignNodeName(nodeName, useShortNodeNames=1):
+    """Make sure the node name is a valid node name.
+
+    NODE-NAME            = string
+                         A node name, possibly containing an "@"
+    USE-SHORT-NODE-NAMES = bool
+                         Whether to align using short node names
+                         or not. If not, then long node names are
+                         assumed.
+
+    Returns: string
+    Throws:  nothing
+
+    The returned node name:
+
+    1. If the NODE-NAME contains an `@', then NODE-NAME is returned unchanged
+    2. If the NODE-NAME does not contain an `@', then the returned node name
+       is constructed as NODE-NAME + "@" + host-name, where
+       host-name is either on short or long form, depending on
+       USE-SHORT-NODE-NAMES.
+    """
     if useShortNodeNames:
         return AlignShortNodeName(nodeName)
     else:
         return AlignLongNodeName(nodeName)
 
 def AlignShortNodeName(nodeName):
+    """Align a node, use short hostname if needed. See doc for AlignNodeName"""
     if "@" in nodeName:
         return nodeName
     fqdn = GetFullyQualifiedHostName()
@@ -49,6 +82,7 @@ def AlignShortNodeName(nodeName):
     return nodeName + "@" + shortHostName
 
 def AlignLongNodeName(nodeName):
+    """Align a node, use long hostname if needed. See doc for AlignNodeName"""
     if "@" in nodeName:
         return nodeName
     fqdn = GetFullyQualifiedHostName()
@@ -86,9 +120,16 @@ def GetFullyQualifiedHostName(name=""):
                 name = hostname
         return name
     
-def getenv(e):
-    if os.environ.has_key(e):
-        return os.environ[e]
+def getenv(envName):
+    """Read an environment variable.
+    ENV-NAME = string
+             The name of the environment variable
+    Returns: "" | string
+             The env-value, or "" if the env-name isn't defined
+    Throws:  nothing
+    """
+    if os.environ.has_key(envName):
+        return os.environ[envName]
     else:
         return ""
 
@@ -100,48 +141,134 @@ Example: IndexSeq(["a", "b", "c"]) ==> [(0, "a"), (1, "b"), (2, "c")]."""
     return map(None, range(len(seq)), seq)
 
 
-_logfile = None
+_logfilename = None
 def SetLogFile(fileName):
-    global _logfile
-    _logfile = open(fileName, "w")
+    """Setup a file name to log to
+    FILE-NAME = string
+              The name of a file to log to
+    Returns: void
 
-def LogFileClose():
-    global _logfile
-    if _logfile != None:
-        _logfile.close()
+    Sets up a log file.
+    """
+    global _logfilename
 
 def Log(str):
-    global _logfile
-    if _logfile != None:
-        _logfile.write(str)
-        _logfile.write("\n")
-        _logfile.flush()
+    """Log a string to the log file
+    STR = string
+        The string to log (without trailing new-line)
+    Returns: void
+    Throws:  nothing
+
+    Logs a string to the file set up by logfilename.
+    The file is opened only during the logging. It is kept closed between
+    calls to this function.
+    """
+    global _logfilename
+    if _logfilename != None:
+        try:
+            f = open(_logfilename, "w")
+            f.write(str)
+            f.write("\n")
+            f.flush()
+            f.close()
+        except IOError, info:
+            # Silently ignore
+            pass
     
 
 _modulesToDebug = []
 _debugAllModules = 0
+_debugFileName = None
+
+def DebugToFile(fileName):
+    """Setup a file name to print debugging messages to
+    FILE-NAME = string
+              The name of a file to log to
+    Returns: void
+    Throws:  nothing
+
+    Sets up a file to print debugging messages to.
+    """
+    global _debugFileName
+    _debugFileName = fileName
 
 def DebugOnAll():
+    """Turn on debugging for all modules
+    No arguments
+    Returns: void
+    Throws:  nothing
+
+    Turns on debugging flag for all modules
+    """
     global _modulesToDebug, _debugAllModules
     _debugAllModules = 1
 
 
 def DebugOn(moduleList):
+    """Turn on debugging for selected modules
+    MODULE-LIST = list(string)
+    
+    Returns: void
+    Throws:  nothing
+
+    Turns on debugging flag for selected modules
+    """
     global _modulesToDebug, _debugAllModules
     _debugAllModules = 0
     _modulesToDebug = moduleList
 
 def Debug(module, txt):
+    """Print a debug text
+    MODULE = string
+           Name of the module that is printing the debug text
+    TXT    = string
+           The text to print as debugging message
+    Returns: void
+    Throws:  nothing
+
+    Prints a debugging text. The text is printed if debugging for the
+    module is turned on, see DebugOnAll and DebugOn.
+
+    The debug message is printed to stdout, except if debugging has
+    been set to go to a file, see DebugToFile.
+    """
     global _modulesToDebug, _debugAllModules
     if _debugAllModules or module in _modulesToDebug:
         _DebugEmitText("%s: %s" % (module, txt))
 
 def DebugHex(module, txt, msg):
+    """Print a debug text and a hexdump of a message
+    MODULE = string
+           Name of the module that is printing the debug text
+    TXT    = string
+           The text to print as debugging message
+    MSG    = string
+           The message to hexdump
+    Returns: void
+    Throws:  nothing
+
+    Prints a debugging text. The text is printed if debugging for the
+    module is turned on, see DebugOnAll and DebugOn.
+
+    The debug message is printed to stdout, except if debugging has
+    been set to go to a file, see DebugToFile.
+    """
     hexMsg = HexDumpFormat(msg)
     _DebugEmitText("%s: %s\n%s" % (module, txt, hexMsg))
 
 def _DebugEmitText(txt):
-    print txt
+    global _debugFileName
+    if _debugFileName == None:
+        print txt
+    else:
+        try:
+            f = open(_debugFileName, "w")
+            f.write(txt)
+            f.flush()
+            f.close()
+        except IOError, info:
+            # Silently ignore
+            pass
 
 
 def _HexDumpFormat(string):
@@ -174,7 +301,76 @@ def _HexDumpFormat(string):
             addr = addr + 16
     return result
 
+class Callback:
+    """This class provides a callback object.
+    Here's how to use it:
+
+    def MyFunction1(...):
+        pass
+    def MyFunction2(..., arg1, arg2, arg3):
+        pass
+    def MyFunction3(..., arg1, arg2, arg3, kw1=None, kw2=None):
+        pass
+
+    cb1 = Callback(MyFunction1)
+    cb2 = Callback(MyFunction2, 1, 2, 3)
+    cb3 = Callback(MyFunction3, 1, 2, 3, kw1=4, kw2=5)
+
+    RegisterCallback(cb1)
+    RegisterCallback(cb2)
+    RegisterCallback(cb3)
+
+    Any arguments that the invoker uses are tacked on before the first
+    callback-argument, hence the `...' in the function definitions above.
+    This example might clarify:
+
+    def MyFunction(s1, s2, arg1, arg2):
+        print "s1=%s, s2=%s, arg1=%s, arg2=%s" % (`s1`, `s2`, `arg1`, `arg2`)
+    mycb = Callback(MyFunction, 3, 4)
+    RegisterCallback(mycb)
+    ...
+    #someone calls:
+    cb(1, 2)
+    # This will cause MyFunction to be invoked as MyFuntion(1,2,3,4),
+    # the arguments 1 and 2 tacked on to the front,
+    # coming from the callback invoker, and arguments 3 and 4
+    # come from the creation of the callback object
+    # Thus, the following will be printed:
+    s1=1, s2=2, arg1=3, arg2=4
+    """
+    def __init__(self, callback, *optArgs, **namedArgs):
+        self.callback = callback
+        self.optArgs = optArgs
+        self.namedArgs = namedArgs
+
+    def __call__(self, *extraArgs):
+        try:
+            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Error in VCallback %s" % self.__repr__()
+            raise
+            
+    def __repr__(self):
+        return "<Callback to %s>" % `self.callback`
+
 class VCallback:
+    """This class provides a callback object.
+    It is similar to the Callback (see the doc for this class),
+    but is intended to be used in a situation where you have
+    already collected the optional args and the keyword args.
+
+    Here's an example of when to use this class instead of the Callback class:
+
+    def DefineRegisterCallback(cbfn, *optArgs, *namedArgs):
+        cb = VCallback(cbfn, optArgs namedArgs)
+        RegisterCallback(cb)
+
+    ...
+
+    DefineRegisterCallback(MyFunction, 1, 2)
+    """
     def __init__(self, callback, optArgs, namedArgs):
         self.callback = callback
         self.optArgs = optArgs
@@ -195,20 +391,3 @@ class VCallback:
     def __repr__(self):
         return "<VCallback to %s>" % `self.callback`
 
-class Callback:
-    def __init__(self, callback, *optArgs, **namedArgs):
-        self.callback = callback
-        self.optArgs = optArgs
-        self.namedArgs = namedArgs
-
-    def __call__(self, *extraArgs):
-        try:
-            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
-        except KeyboardInterrupt:
-            raise
-        except:
-            print "Error in VCallback %s" % self.__repr__()
-            raise
-            
-    def __repr__(self):
-        return "<Callback to %s>" % `self.callback`
