@@ -1,5 +1,6 @@
 import os
 import string
+import socket
 
 def ReadInt1(s):
     return ord(s[0])
@@ -70,37 +71,19 @@ def HexDump(string):
             remaining_chars = remaining_chars[16:]
             addr = addr + 16
 
-def GetDomainName():
-    dnProg = os.popen("domainname")
-    dnOutput = map(lambda l: l[:-1], dnProg.readlines())
-    dnProg.close()
-    line0 = dnOutput[0]
-    if line0 != "":
-        return line0
+def NodeNameMaybeAddHostName(nodeName):
+    if "@" in nodeName:
+        return nodeName
+    hostName = GetHostName()
+    return nodeName + "@" + hostName
 
-    hnProg = os.popen("hostname")
-    hnOutput = map(lambda l: l[:-1], hnProg.readlines())
-    hnProg.close()
-    line0 = hnOutput[0]
-    if line0 != "":
-        components = string.split(line0, ".")
-        if len(components) == 1:
-            # only hostname in output
-            return "somedomain"
-        else:
-            return string.join(components[1:], ".")
-    else:
-        return "somedomain"
-    
+def GetFullyQualifiedHostName():
+    raise "Not implemented"
     
 def GetHostName():
-    hnProg = os.popen("hostname")
-    hnOutput = map(lambda l: l[:-1], hnProg.readlines())
-    hnProg.close()
-    line0 = hnOutput[0]
-    if line0 != "":
-        return line0
+    hostName = socket.gethostname()
+    if "." in hostName:
+        components = string.split(hostName, ".")
+        return components[0]
     else:
-        return "somehost"
-    
-    
+        return hostName

@@ -11,12 +11,6 @@ import erl_common
 import eventhandler
 import erl_async_conn
 
-def NodeNameMaybeAddDomain(nodeName):
-    if "@" in nodeName:
-        return nodeName
-    domainName = erl_common.GetHostName()
-    return nodeName + "@" + domainName
-
 def CheckDigest(digest, challenge, cookie):
     expectedDigest = GenDigest(challenge, cookie)
     return expectedDigest == digest
@@ -47,22 +41,26 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._cookie = cookie
         self._distrVersion = distrVersion
         self._flags = flags
+        self._peerName = None
         self._state = self._STATE_DISCONNECTED
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
 
     def InitiateConnection(self, hostName, portNum,
-                           connectOkCb, connectFailedCb, connectBrokenCb):
+                           connectOkCb, connectFailedCb, connectionBrokenCb):
         self._hostName = hostName
         self._portNum = portNum
         self._connectOkCb = connectOkCb
         self._connectFailedCb = connectFailedCb
-        self._connectBrokenCb = connectBrokenCb
+        self._connectionBrokenCb = connectionBrokenCb
         if self.Connect(hostName, portNum):
             self._SendName()
             self._state = self._STATE_HANDSHAKE_RECV_STATUS
         else:
             return 0
+
+    def GetPeerNodeName(self):
+        return self._peerName
 
     def _In(self):
         """Callback routine, which is called when data is available
@@ -76,7 +74,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._connectFailedCb()
             else:
                 self._state = self._STATE_DISCONNECTED
-                self._connectBrokenCb()
+                self._connectionBrokenCb()
             return
 
         self._recvdata = self._recvdata + newData
@@ -200,43 +198,6 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self.Send(msg)
 
 
-class ErlNode:
-    def __init__(self, nodeName, cookie, distrVersion, flags):
-        self._nodeName = NodeNameMaybeAddDomain(nodeName)
-        self._cookie = cookie
-        self._distrVersion = distrVersion
-        self._flags = flags
-        self._server = ServerSocket(nodeName, cookie, distrVersion, flags)
-        self._portNum = self.serverSocket.Start()
-        self._isServerPublished = 0
-
-    def CreateMBox(self, msgCallback=None):
-        pass
-
-    def Ping(self, remoteNodeName):
-        pass
-
-    def Publish(self):
-        pass
-
-    def Unpublish(self):
-        pass
-
-
-class ErlMBox:
-    def __init__(self):
-        pass
-
-    def Send(self, dest, msg):
-        pass
-
-    def Link(self, otherEnd):
-        pass
-
-    def Unlink(self, otherEnd):
-        pass
-
-
 class ServerSocket(erl_async_conn.ErlAsyncServer):
     def __init__(self, nodeName, cookie, distrVersion, flags):
         erl_async_conn.ErlAsyncServer.__init__(self)
@@ -245,10 +206,23 @@ class ServerSocket(erl_async_conn.ErlAsyncServer):
         self._distrVersion = distrVersion
         self._flags = flags
 
+    def Start(self, nodeUpCb, nodeDownCb):
+        self._nodeUpCb = nodeUpCb
+        self._nodeDownCb = nodeDownCb
+        erl_async_conn.ErlAsyncServer.Start(self)
+
     def _NewConnection(self, s, remoteAddr):
         inConn = ErlNodeInConnection(s,
                                      self._nodeName, self._cookie,
-                                     self._distrVersion, self._flags)
+                                     self._distrVersion, self._flags,
+                                     self._NodeUp, self._NodeDown)
+
+    def _NodeUp(self, conn):
+        self._nodeUpCb(conn, conn.GetPeerNodeName())
+
+    def _NodeDown(self, conn):
+        self._nodeUpCb(conn, conn.GetPeerNodeName())
+
 
 class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
     _STATE_DISCONNECTED = -1
@@ -257,7 +231,8 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
     _STATE_HANDSHAKE_RECV_CHALLENGE_REPLY = 5
     _STATE_CONNECTED = 7
 
-    def __init__(self, sock, nodeName, cookie, distrVersion, flags):
+    def __init__(self, sock, nodeName, cookie, distrVersion, flags,
+                 newConnectionUpCb, connectionBrokenCb):
         erl_async_conn.ErlAsyncPeerConnection.__init__(self, sock)
         self._recvdata = ""
         self._hostName = None
@@ -266,9 +241,15 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._cookie = cookie
         self._distrVersion = distrVersion
         self._flags = flags
+        self._newConnectionUpCb = newConnectionUpCb
+        self._connectionBrokenCb = connectionBrokenCb
         self._state = self._STATE_DISCONNECTED
+        self._peerName = None
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
+
+    def GetPeerNodeName(self):
+        return self._peerName
 
     def _In(self):
         """Callback routine, which is called when data is available
@@ -279,10 +260,9 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             self.Close()
             if self._state != self._STATE_CONNECTED:
                 self._state = self._STATE_DISCONNECTED
-                self._connectFailedCb()
             else:
                 self._state = self._STATE_DISCONNECTED
-                self._connectBrokenCb()
+                self._connectionBrokenCb(self)
             return
 
         self._recvdata = self._recvdata + newData
@@ -339,6 +319,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 self._SendChallengeAck(peersChallenge)
                 self._packetLenSIze = 4
                 self._state = self._STATE_CONNECTED
+                self._newConnectionUpCb(self)
             else:
                 erl_common.Debug("Connection attempt from disallowed node %s" %
                                  self._peerName)
@@ -392,8 +373,8 @@ def __TestConnectOk():
 def __TestConnectFailed():
     print "ConnectFailed"
 
-def __TestConnectBroken():
-    print "ConnectBroken"
+def __TestConnectionBroken():
+    print "ConnectionBroken"
 
 def main(argv):
     global e
@@ -406,12 +387,12 @@ def main(argv):
     hostName = "localhost"
     ownNodeName = "py_interface_test"
     cookie = "cookie"
-    ownDistrVersion = 4
+    ownDistrVersion = 5
     ownFlags = 4
 
     for (optchar, optarg) in opts:
         if optchar == "-?":
-            print "Usage: %s host [port]" % argv[0]
+            print "Usage: %s [host] port" % argv[0]
             sys.exit(1)
         elif optchar == "-c":
             cookie = optarg
@@ -430,7 +411,7 @@ def main(argv):
     else:
         sys.exit(1)
 
-    ownNodeName = NodeNameMaybeAddDomain(ownNodeName)
+    ownNodeName = erl_common.NodeNameMaybeAddHostName(ownNodeName)
 
     print "Connecting to %s:%d"
     print "  ownNodeName=\"%s\"" % ownNodeName
@@ -442,7 +423,7 @@ def main(argv):
     c.InitiateConnection(hostName, portNum,
                          __TestConnectOk,
                          __TestConnectFailed,
-                         __TestConnectBroken)
+                         __TestConnectionBroken)
     evhandler = eventhandler.GetEventHandler()
     evhandler.Loop()
 
