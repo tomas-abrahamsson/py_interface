@@ -51,7 +51,7 @@ def HexDump(string):
             if i > 0:
                 hexString = hexString + " "
             hexString = hexString + ("%02x" % ord(c))
-            if (c < " "):
+            if (c < " ") or ((ord(c) >= 128) and (ord(c) < 160)):
                 ascString = ascString + "."
             else:
                 ascString = ascString + c

@@ -161,7 +161,11 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 erl_common.Debug("Tick")
                 self._SendMsg("")
             else:
-                erl_common.DebugUnrecognizedMsg("connected", data)
+                erl_common.DebugUnrecognizedMsg("out: state=connected", data)
+                msgType = data[0]
+                erl_common.Debug("msgType=%d (%c)" % (ord(msgType), msgType))
+                terms = self.UnpackTerm(data[1:]) 
+                erl_common.Debug("terms=%s" % `terms`)
         else:
             erl_common.DebugUnrecognizedMsg("state=%d" % self._state, data)
 
@@ -331,7 +335,11 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 erl_common.Debug("Tick")
                 self._SendMsg("")
             else:
-                erl_common.DebugUnrecognizedMsg("connected", data)
+                erl_common.DebugUnrecognizedMsg("state=connected", data)
+                msgType = data[0]
+                erl_common.Debug("msgType=%d (%c)" % (msgType, chr(msgType)))
+                terms = self.UnpackTerm(data[1:]) 
+                erl_common.Debug("terms=%s" % `terms`)
         else:
             erl_common.DebugUnrecognizedMsg("state=%d" % self._state, data)
             
@@ -383,6 +391,7 @@ def main(argv):
         opts, args = getopt.getopt(argv[1:], "?n:c:d:f:")
     except getopt.error, info:
         print info
+        sys.exit(1)
 
     hostName = "localhost"
     ownNodeName = "py_interface_test"

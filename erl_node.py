@@ -52,7 +52,8 @@ class ErlNode:
         self._distrVersion = distrVersion
         self._flags = flags
         self._connections = {}
-        self._server = ServerSocket(nodeName, cookie, distrVersion, flags)
+        self._server = erl_node_conn.ServerSocket(nodeName, cookie,
+                                                  distrVersion, flags)
         self._portNum = self.server.Start(self._NodeUp, self._NodeDown)
         self._isServerPublished = 0
         self._mboxes = {}

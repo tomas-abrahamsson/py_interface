@@ -52,18 +52,27 @@ class OtpAtom:
             _atom_cache[cache] = atomText
         else:
             self.atomText = atomText
+    def __repr__(self):
+        return "<erl-atom: %s>" % `self.atomText`
+
             
 class OtpRef:
     def __init__(self, node, id, creation):
         self.node = node
         self.id = id                    # id is either an int or a list of ints
         self.creation = creation
+    def __repr__(self):
+        return "<erl-ref, node=%s, id=%d, creation=%d>" % \
+               (`self.node`, self.id, self.creation)
 
 class OtpPort:
     def __init__(self, node, id, creation):
         self.node = node
         self.id = id
         self.creation = creation
+    def __repr__(self):
+        return "<erl-port, node=%s, id=%d, creation=%d>" % \
+               (`self.node`, self.id, self.creation)
 
 class OtpPid:
     def __init__(self, node, id, serial, creation):
@@ -71,6 +80,9 @@ class OtpPid:
         self.id = id
         self.serial = serial
         self.creation = creation
+    def __repr__(self):
+        return "<erl-pid, node=%s, id=%d, serial=%d, creation=%d>" % \
+               (`self.node`, self.id, self.serial, self.creation)
 
 def OtpTuple(elementsAsList):
     return tuple(elementsAsList)
@@ -81,6 +93,8 @@ def OtpList(elements):
 class OtpBinary:
     def __init__(self, contets):
         self._contents = contets        #  a string
+    def __repr__(self):
+        return "<erl-binary, size=%d>" % len(self._contents)
 
 def OtpString(s):
     return s
@@ -92,6 +106,10 @@ class OtpFun:
         self.index = index
         self.uniq = uniq
         self.freeVars = freeVars
+    def __repr__(self):
+        return "<erl-fun, pid=%s, module=%s, index=%d, uniq=%d, freeVars=%s>"%\
+               (`self.pid`, `self.module`, self.index, self.uniq,
+                `self.freeVars`)
 
 class Unpacker:
     INCOMPLETE = 0
@@ -123,9 +141,10 @@ class Unpacker:
     def _UnpackOneTermTop(self, data):
         if len(data) == 0: 
             return (None, data)
-        if data[0] != 131:
+        if data[0] != chr(131):
             return (None, data)
-        return self._UnpackOneTerm(data)
+        return self._UnpackOneTerm(data[1:])
+
 
     def _UnpackOneTerm(self, data):
         dataLen = len(data)
@@ -161,7 +180,7 @@ class Unpacker:
         elif data0 == 100:              # atom_ext
             if dataLen < 3:
                 return (None, data)
-            atomLen = self._ReadInt2(data[1:2])
+            atomLen = self._ReadInt2(data[1:3])
             if dataLen < 3 + atomLen:
                 return (None, data)
             atomText = data[3:3 + atomLen]
@@ -201,7 +220,7 @@ class Unpacker:
         elif data0 == 104:              # small_tuple_ext
             if dataLen < 2:
                 return (None, data)
-            arity = self._ReadInt1(s[1])
+            arity = self._ReadInt1(data[1])
             (elements, remainingData) = self._UnpackTermSeq(arity, data[2:])
             if elements == None:
                 return (None, data)
@@ -210,7 +229,7 @@ class Unpacker:
         elif data0 == 105:              # large_tuple_ext
             if dataLen < 5:
                 return (None, data)
-            arity = self._ReadInt4(s[1:5])
+            arity = self._ReadInt4(data[1:5])
             (elements, remainingData) = self._UnpackTermSeq(arity, data[5:])
             if elements == None:
                 return (None, data)
@@ -222,7 +241,7 @@ class Unpacker:
         elif data0 == 107:              # string_ext
             if dataLen < 3:
                 return (None, data)
-            strlen = self._ReadInt2(s[1:3])
+            strlen = self._ReadInt2(data[1:3])
             if dataLen < 3 + strlen:
                 return (None, data)
             s = data[3:3 + strlen]
@@ -240,7 +259,7 @@ class Unpacker:
         elif data0 == 109:              # binary_ext
             if dataLen < 5:
                 return (None, data)
-            binlen = self._ReadInt4(s[1:5])
+            binlen = self._ReadInt4(data[1:5])
             if dataLen < 5 + binlen:
                 return (None, data)
             s = data[5:5 + binlen]
@@ -334,6 +353,10 @@ class Unpacker:
                 return (None, data)
             return (OtpFun(pid, module, index, uniq, freeVars),
                     remainingData5)
+
+        else:
+            print "Bad tag %s" % `data0`
+
             
         return (None, data)
 
