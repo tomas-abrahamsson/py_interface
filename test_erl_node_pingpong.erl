@@ -21,6 +21,7 @@ start([OtherNode]) ->
 		     [],	% nil_ext
 		     "abc",	% string_ext (up to 65k chars)
 		     [1,2,3],	% list_ext
+				% fixme: make test for improper lists
 		     <<>>,	% binary_ext
 		     <<"abc">>,	% binary_ext
 		     2 bsl 33,	% small_big_ext
@@ -39,23 +40,31 @@ start([OtherNode]) ->
 		 ]},
     
 		    
-
+    io:format("Sending message...~n"),
     {p, OtherNode} ! Term,
+    io:format("Sending message...done~n"),
+    io:format("Waiting for answer...~n"),
     receive
 	Term ->
 	    io:format("Ok, got term ~p~n",[Term]),
+	    io:format("Sending larger message...~n"),
 	    {p, OtherNode} ! LargeTerm,
+	    io:format("Sending larger message...done~n"),
+	    io:format("Waiting for answer again...~n"),
 	    receive
-		LargeTerm -> io:format("Ok, got term ~p~n",[LargeTerm]);
-		Y    -> io:format("Oops, got ~p~n",[Y])
+		LargeTerm -> io:format("Ok, got term ~p~n",[LargeTerm]),
+			     io:format("Test succeeded!~n");
+		Y    -> io:format("Oops, got ~p~n",[Y]),
+			io:format("Test failed.~n")
 	    after 10000 ->
-		    io:format("Timeout2~n")
+		    io:format("Timeout2~n"),
+		    io:format("Test failed.~n")
 	    end;
 	X ->
-	    io:format("Oops, got ~p~n"++
-		      "fun_info:~p~n"++
-		      "term: ~p~n",
-		      [X, erlang:fun_info(F), term_to_binary(F)])
+	    io:format("Oops, expected:~n  ~p~n"++
+		      "got:~n  ~p~n", [X, X]),
+	    io:format("Test failed.~n")
     after 10000 ->
-	    io:format("Timeout~n")
+	    io:format("Timeout~n"),
+	    io:format("Test failed.~n")
     end.
