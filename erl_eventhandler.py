@@ -1,4 +1,4 @@
-### eventhandler.py -- An event handler
+### erl_eventhandler.py -- An event handler
 ###
 ### $Id$
 ###
@@ -32,7 +32,7 @@ import select
 import time
 from Tkinter import tkinter
 
-import common
+import erl_common
 
 _evhandler = None
 
