@@ -30,6 +30,7 @@ class ErlMBox:
         self._msgCallback = msgCallback
         self._pid = pid
         self._pendingRPCs = {}
+        self._nodeDownCbs = {}
 
     def Self(self):
         return self._pid
@@ -65,6 +66,12 @@ class ErlMBox:
         else:
             self._pendingRPCs[remoteNodeName] = [cb]
 
+        # Register a nodedown-callback for this node, so
+        # we can call any rpc callbacks in case the node goes down
+        if not self._nodeDownCbs.has_key(remoteNodeName):
+            self._nodeDownCbs = self._node.NodeDownSubscribe(remoteNodeName,
+                                                             self._NodeDown)
+
         # Now send the rpc-message
         self.Send(("rex", remoteNode),
                   (self.Self(),
@@ -94,6 +101,15 @@ class ErlMBox:
             cb = pendingRPCs[0]
             self._pendingRPCs[sourceNodeName] = pendingRPCs[1:]
             cb(answer)
+
+    def _NodeDown(self, nodeStatus, nodeName):
+        if self._pendingRPCs.has_key(nodeName):
+            callbacks = self._pendingRPCs[nodeName]
+            self._pendingRPCs[nodeName] = []
+            for cb in callbacks:
+                cb((erl_term.ErlAtom("EXIT"),
+                    (erl_term.ErlAtom("nodedown"),
+                     erl_term.ErlAtom(nodeName))))
 
     def _Sink(self, *a, **kw):
         pass
@@ -140,6 +156,9 @@ class ErlNode:
         self._registeredNames = {}      # mapping name    --> pid
         self._registeredPids = {}       # mapping pid     --> name
 
+        self._nodeUpCb = {}
+        self._nodeDownCb = {}           # mapping nodeName --> [(id,callback)]
+        self._cbId = 0
 
         self._server = erl_node_conn.ErlNodeServerSocket(self._nodeName,
                                                          self._cookie,
@@ -179,6 +198,40 @@ class ErlNode:
         if self._isServerPublished:
             self._epmd.Close()
             self._isServerPublished = 0
+
+    def NodeUpSubscribe(self, nodeName, cb):
+        id = self._cbId
+        self._cbId = self._cbId + 1
+        if self._nodeUpCb.has_key(nodeName):
+            self._nodeUpCb[nodeName].append((id, cb))
+        else:
+            self._nodeUpCb[nodeName] = [(id, cb)]
+        return id
+
+    def NodeUpUnsubscribe(self, nodeName, id):
+        if self._nodeUpCb.has_key(nodeName):
+            cbs = self._nodeUpCb[nodeName]
+            for (index, (cbid, cb)) in map(None, range(len(cbs)), cbs):
+                if id == cbid:
+                    del self._nodeUpCb[nodeName][index]
+                    return
+
+    def NodeDownSubscribe(self, nodeName, cb):
+        id = self._cbId
+        self._cbId = self._cbId + 1
+        if self._nodeDownCb.has_key(nodeName):
+            self._nodeDownCb[nodeName].append((id, cb))
+        else:
+            self._nodeDownCb[nodeName] = [(id, cb)]
+        return id
+
+    def NodeDownUnsubscribe(self, nodeName, id):
+        if self._nodeDownCb.has_key(nodeName):
+            cbs = self._nodeDownCb[nodeName]
+            for (index, (cbid, cb)) in map(None, range(len(cbs)), cbs):
+                if id == cbid:
+                    del self._nodeDownCb[nodeName][index]
+                    return
 
     def DumpConnections(self):
         print "Connections:"
@@ -304,12 +357,18 @@ class ErlNode:
         erl_common.Debug("NODEUP: nodeName=%s connection=%s" % \
                          (nodeName, connection))
         self._connections[nodeName] = connection
+        if self._nodeUpCb.has_key(nodeName):
+            for (id, cb) in self._nodeUpCb[nodeName]:
+                cb("nodeup", nodeName)
 
     def _NodeDown(self, connection, nodeName):
         erl_common.Debug("NODENOWN: nodeName=%s connection=%s" % \
                          (nodeName, connection))
         if self._connections.has_key(nodeName):
             del self._connections[nodeName]
+            if self._nodeDownCb.has_key(nodeName):
+                for (id, cb) in self._nodeDownCb[nodeName]:
+                    cb("nodedown", nodeName)
     
     def _PingEpmdResponse(self, result, portNum, nodeType, proto,
                           distVSNRange, nodeNameNoHost, extra,
