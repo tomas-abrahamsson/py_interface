@@ -483,7 +483,8 @@ def _PackList(term):
         packedData = ""
         for elem in term:
             packedData = packedData + _PackOneTerm(elem)
-        return _PackInt1(MAGIC_LIST) + _PackInt4(len(term)) + packedData
+        return _PackInt1(MAGIC_LIST) + _PackInt4(len(term)) + packedData + \
+               _PackList([])
 
 def _PackTuple(term):
     if len(term) < 256:
