@@ -49,12 +49,13 @@ class ErlMBox:
         pass
 
     def SendRPC(self, remote_node, mod, fun, args, cb):
+        if type(mod) == types.StringType:
+            mod = erl_term.ErlAtom(mod)
+        if type(fun) == types.StringType:
+            fun = erl_term.ErlAtom(fun)
         self.Send(("rex", remote_node),
-                  (erl_term.ErlAtom(mod),
-                   erl_term.ErlAtom(fun),
-                   args,
-                   erl_term.ErlAtom("user")))
-
+                  (self.Self(),
+                   (mod, fun, args, erl_term.ErlAtom("user"))))
 
     ##
     ## Routines to be called from the node only
