@@ -36,7 +36,7 @@ from   SOCKET import *                  # socket constants
 
 import eventhandler
 import common
-
+import erl_common
 
 def OtpNumber(number):
     return number
@@ -571,17 +571,13 @@ class Unpacker:
         return self._ReadInt1(s) & ((1 << 2) - 1)
 
     def _ReadInt1(self, s):
-        return ord(s[0])
+        return erl_common.ReadInt1(s)
     
     def _ReadInt2(self, s):
-        return (ord(s[0]) << 8) + \
-               (ord(s[1]) << 0)
+        return erl_common.ReadInt2(s)
     
     def _ReadInt4(self, s):
-        return (ord(s[0]) << 24) + \
-               (ord(s[1]) << 16) + \
-               (ord(s[2]) <<  8) + \
-               (ord(s[3]) <<  0)
+        return erl_common.ReadInt4(s)
 
 class Packer:
     def __init__(self):
@@ -751,15 +747,11 @@ class Packer:
         return self._PackInt1(i & ((1 << 2) - 1))
 
     def _PackInt1(self, i):
-        return chr(i & 255)
+        return erl_common.PackInt1(i)
 
     def _PackInt2(self, i):
-        return chr((i >> 8) & 255) + \
-               chr((i >> 0) & 255)
+        return erl_common.PackInt2(i)
 
     def _PackInt4(self, i):
-        return chr((i >> 24) & 255) + \
-               chr((i >> 16) & 255) + \
-               chr((i >>  8) & 255) + \
-               chr((i >>  0) & 255)
+        return erl_common.PackInt4(i)
 
