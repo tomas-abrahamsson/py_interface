@@ -7,7 +7,8 @@
 %% if the received message matches the original message.
 %%
 -module(test_erl_node_pingpong).
--compile(export_all).
+
+-export([start/0, start/1]).
 
 
 start() ->
