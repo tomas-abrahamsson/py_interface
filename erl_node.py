@@ -6,7 +6,7 @@ import random
 import getopt
 
 
-import otp_epmd
+import erl_epmd
 import erl_term
 import erl_common
 import eventhandler
@@ -26,6 +26,8 @@ _serial = 0
 class ErlMBox:
     def __init__(self, node, pid, msgCallback):
         self._node = node
+        if msgCallback == None:
+            msgCallback = self._Sink
         self._msgCallback = msgCallback
         self._pid = pid
 
@@ -33,7 +35,13 @@ class ErlMBox:
         return self._pid
 
     def Send(self, dest, msg):
-        pass
+        self._node.SendMsgFromMBox(self, dest, msg)
+
+    def RegisterName(self, name):
+        self._node.RegisterNameForMBox(self, name)
+
+    def UnregisterName(self):
+        self._node.UnregisterNameForMBox(self)
 
     def Link(self, otherEnd):
         pass
@@ -42,31 +50,74 @@ class ErlMBox:
         pass
 
 
+    ##
+    ## Routines to be called from the node only
+    ##
+    def Msg(self, msg):
+        self._msgCallback(msg)
+
+    def _Sink(self, *a, **kw):
+        pass
+
+
 class ErlNode:
-    def __init__(self, nodeName, cookie,
-                 distrVersionLo = 5,
-                 distrVersionHi = 5,
+    # Early operations 
+    CTRLMSGOP_LINK = 1
+    CTRLMSGOP_SEND = 2
+    CTRLMSGOP_EXIT = 3
+    CTRLMSGOP_UNLINK = 4
+    CTRLMSGOP_NODE_LINK = 5
+    CTRLMSGOP_REG_SEND = 6
+    CTRLMSGOP_GROUP_LEADER = 7
+    CTRLMSGOP_EXIT2 = 8
+    # New operations in destrvsn = 1 (OTP R4)
+    CTRLMSGOP_SEND_TT = 12
+    CTRLMSGOP_EXIT_TT = 13
+    CTRLMSGOP_REG_SEND_TT = 16
+    CTRLMSGOP_EXIT2_TT = 18
+    # New operations in destrvsn = 4 (OTP R6)
+    CTRLMSGOP_MONITOR_P = 19
+    CTRLMSGOP_DEMONITOR_P = 20
+    CTRLMSGOP_MONITOR_P_EXIT = 21
+    # end of operations
+    
+    def __init__(self, nodeName, cookie="",
+                 distrVersion = 5,
                  distrFlags = DISTR_FLAGS_EXTENDEDREFERENCES):
         self._nodeName = erl_common.NodeNameMaybeAddHostName(nodeName)
         self._cookie = cookie
         self._distrVersion = distrVersion
-        self._flags = flags
+        self._distrFlags = distrFlags
+
+        self._creation = 0
         self._connections = {}
-        self._server = erl_node_conn.ServerSocket(nodeName, cookie,
-                                                  distrVersion, flags)
-        self._portNum = self.server.Start(self._NodeUp, self._NodeDown)
-        self._isServerPublished = 0
-        self._mboxes = {}
-        self._epmd = otp_epmd.OtpEpmd()
-        self.Publish()
+
+        self._epmd = erl_epmd.ErlEpmd()
         self._ongoingPings = {}
+
+        self._isServerPublished = 0
+        self._pids = {}                 # mapping pid     --> ErlMBox()
+        self._mboxes = {}               # mapping ErlMBox --> pid
+        self._registeredNames = {}      # mapping name    --> pid
+        self._registeredPids = {}       # mapping pid     --> name
+
+
+        self._server = erl_node_conn.ErlNodeServerSocket(self._nodeName,
+                                                         self._cookie,
+                                                         self._distrVersion,
+                                                         self._distrFlags)
+        self._portNum = self._server.Start(self._NodeUp, self._NodeDown,
+                                           self._PassThroughMsg)
+        self._epmd.SetOwnPortNum(self._portNum)
+        self._epmd.SetOwnNodeName(self._nodeName)
 
         
     def CreateMBox(self, msgCallback=None):
         mboxPid = self._CreatePid()
         mbox = ErlMBox(self, mboxPid, msgCallback)
-        self._mboxes[mboxPid] = mbox
-        return mboxPid
+        self._pids[mboxPid] = mbox
+        self._mboxes[mbox] = mboxPid
+        return mbox
 
     def Ping(self, remoteNodeName, pingCallback):
         if not "@" in remoteNodeName:
@@ -92,13 +143,71 @@ class ErlNode:
 
 
     ##
+    ## Routines to be called only by mboxes
+    ##
+
+    def RegisterNameForMBox(self, mbox, name):
+        mboxPid = mbox.Self()
+        if self._registeredNames.has_key(name):
+            raise "IsRegistered"
+        if self._registeredPids.has_key(mboxPid):
+            raise "IsRegistered"
+        self._registeredNames[name] = mboxPid
+        self._registeredPids[mboxPid] = name
+
+    def UnregisterNameForMBox(self, mbox):
+        mboxPid = mbox.Self()
+        if not self._registeredPids.has_key(mboxPid):
+            raise "NotRegistered"
+        name = self._registeredPids[mboxPid]
+        del self._registeredPids[mboxPid]
+        del self._registeredNames[name]
+
+
+    def SendMsgFromMBox(self, sourceMBox, dest, msg):
+        sourcePid = self._mboxes[sourceMBox]
+        if type(dest) == types.TupleType:
+            destPid = dest[0]
+            destNode = dest[1]
+        elif erl_term.IsErlAtom(dest):
+            destNode = self
+            name = dest.atomText
+            if not self._registeredNames.has_key(name):
+                return
+            destPid = self._registeredNames[name]
+        elif erl_term.IsErlPid(dest):
+            destPid = dest
+            destNode = dest.node
+
+        if destNode == self:
+            if not self._registeredPids.has_key(destPid):
+                return
+            mbox = self._registredPids[destPid]
+            mbox.Msg(msg)
+        else:                           # dest node is remote
+            # First make sure we are online
+            self.Publish()
+            if not self._connections.has_key(destNode):
+                # We don't have a connection to the destination
+                # We must fix open a connection.
+                # This is done by perforing a ping
+                # with the ping-callback being a function that
+                # sends the message.
+                cb = common.VCallback(self, _SendMsgToRemoteNode,
+                                      sourcePid, destNode, destPid, msg)
+                self.Ping(destNode, cb)
+            else:
+                self._SendMsgToRemoteNode("pong",
+                                          sourcePid, destNode, destPid, msg)
+
+    ##
     ## Internal routines
     ##
 
     def _CreatePid(self):
         ## Code stolen from com/ericsson/otp/erlang/OtpLocalNode.java
         global _serial, _pidCount
-        newPid = erl_term.OtpPid(erl_term.OtpAtom(self._nodeName),
+        newPid = erl_term.ErlPid(erl_term.ErlAtom(self._nodeName),
                                  _pidCount, _serial, self._creation)
         _pidCount = _pidCount + 1
         if _pidCount > 0x7fff:
@@ -134,7 +243,7 @@ class ErlNode:
             [otherNode, otherHost] = string.split(remoteNodeName, "@")
             out = erl_node_conn.ErlNodeOutConnection(self._nodeName,
                                                      self._cookie,
-                                                     self._distrVersionHi,
+                                                     self._distrVersion,
                                                      self._flags)
             connectedCb = common.VCallback(self._PingSucceeded,
                                            out, remoteNodeName)
@@ -142,6 +251,8 @@ class ErlNode:
                                                out, remoteNodeName)
             connectionBrokenCb = common.VCallback(self._OutConnectionBroken,
                                                   out, remoteNodeName)
+            passThroughMsgCb = common.VCallback(self._PassThroughMsg,
+                                                out, remoteNodeName)
             out.InitiateConnection(otherHost, portNum,
                                    connectedOkCb,
                                    connectFailedCb,
@@ -163,3 +274,153 @@ class ErlNode:
     def _OutConnectionBroken(self, connection, remoteNodeName):
         if self.connections.has_key(remoteNodeName):
             del self.connections[remoteNodeName]
+
+    def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
+        erl_common.Debug("ctrlMsg=%s" % `ctrlMsg`)
+
+        ctrlMsgOp = ctrlMsg[0]
+        if ctrlMsgOp == self.CTRLMSGOP_LINK:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_SEND:
+            cookie = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            msg = msg
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            reason = ctrlMsg[3]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_UNLINK:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_NODE_LINK:
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_REG_SEND:
+            fromPid = ctrlMsg[1]
+            cookie = ctrlMsg[2]
+            toNameAtom = ctrlMsg[3]
+            toName = toNameAtom.atomText
+            msg = msg
+            if self._registeredNames.has_key(toName):
+                mboxPid = self._registeredNames[toName]
+                mbox = self._pids[mboxPid]
+                mbox.Msg(msg)
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_GROUP_LEADER:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_EXIT2:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            reason = ctrlMsg[3]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_SEND_TT:
+            cookie = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            traceToken = ctrlMsg[3]
+            msg = msg
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_EXIT_TT:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            traceToken = ctrlMsg[3]
+            reason = ctrlMsg[4]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_REG_SEND_TT:
+            fromPid = ctrlMsg[1]
+            cookie = ctrlMsg[2]
+            toName = ctrlMsg[3]
+            traceToken = ctrlMsg[4]
+            msg = msg
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_EXIT2_TT:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            traceToken = ctrlMsg[3]
+            reason = ctrlMsg[4]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_MONITOR_P:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            ref = ctrlMsg[3]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_DEMONITOR_P:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            ref = ctrlMsg[3]
+            pass
+        elif ctrlMsgOp == self.CTRLMSGOP_MONITOR_P_EXIT:
+            fromPid = ctrlMsg[1]
+            toPid = ctrlMsg[2]
+            ref = ctrlMsg[3]
+            pass
+        else:
+            erl_common.Debug("Unknown controlmsg: %s" % `ctrlMsg`)
+
+    def _SendMsgToRemoteNode(pingResult, sourcePid, destNode, destPid, msg):
+        if pingResult != "pong":
+            return
+        if not self._connections.has_key(destNode):
+            return
+        conn = self._connections[destNode]
+        cookie = erl_term.ErlAtom("")
+        if erl_term.IsAtom(destPid):
+            ctrlMsg = (self.CTRLMSGOP_REG_SEND, sourcePid, cookie, destPid)
+        else:
+            ctrlMsg = (self.CTRLMSGOP_SEND, cookie, destPid)
+        conn.SendMsg(ctrlMsg, msg)
+
+
+###
+###
+###
+### TEST CODE
+###
+###
+
+def __TestMBoxCallback(msg):
+    print "msg=%s" % `msg`
+
+n=None
+m=None
+def testmain(argv):
+    try:
+        opts, args = getopt.getopt(argv[1:], "?n:c:")
+    except getopt.error, info:
+        print info
+        sys.exit(1)
+
+    hostName = "localhost"
+    ownNodeName = "py_interface_test"
+    cookie = "cookie"
+
+    for (optchar, optarg) in opts:
+        if optchar == "-?":
+            print "Usage: %s erlnode" % argv[0]
+            sys.exit(1)
+        elif optchar == "-c":
+            cookie = optarg
+        elif optchar == "-n":
+            ownNodeName = optarg
+
+    print "Creating node..."
+    n = ErlNode(ownNodeName, cookie)
+    print "Publishing node..."
+    n.Publish()
+    print "Creating mbox..."
+    m = n.CreateMBox(__TestMBoxCallback)
+    print "Registering mbox as p..."
+    m.RegisterName("p")
+
+    print "Looping..."
+    evhand = eventhandler.GetEventHandler()
+    evhand.Loop()
+
+
+if __name__ == '__main__':
+    testmain(sys.argv)
