@@ -68,6 +68,12 @@ class TkTest:
         argse.pack(side=LEFT)
         f2.pack()
 
+        f3 = Frame(top)
+        b3 = Button(f3, text="Dump node connections",
+                    borderwidth=1, command=self.NDump)
+        b3.pack(side=LEFT)
+        f3.pack()
+
     def __CheckKbdInterrupt(self):
         # Exercise the Python interpreter regularly so keyboard
         # interrupts get through
@@ -98,6 +104,8 @@ class TkTest:
     def _TestMBoxCallback(self, msg, *x, **kw):
         print "Incoming msg=%s" % `msg`
 
+    def NDump(self, event=None):
+        self.node.DumpConnections()
 
 
 
