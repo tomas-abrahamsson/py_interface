@@ -1,5 +1,14 @@
 #! /usr/bin/env python
 
+## A test case for testing packing/unpacking of erlang-terms:
+##
+## See run_test_erl_node_pingpong.sh for how to run it.
+##
+## A message is sent from an erlang node to a python node.
+## That message is echoed back to the erlang node, which checks
+## if the received message matches the original message.
+##
+
 import sys
 import types
 import string
