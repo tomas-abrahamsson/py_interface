@@ -22,6 +22,23 @@
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+### Log of fixes:
+###
+### * integer unpacking by Jimmy Olgeni <olgeni@uli.it>
+###
+### * string packing by Jimmy Olgeni <olgeni@uli.it>
+###
+### * reference unpacking, independently by Nigel Head <nigel.head@esa.int>
+###                                and Tomas Abrahamsson <tab@lysator.liu.se>
+###
+### * bignum packing by Tomas Abrahamsson <tab@lysator.liu.se>
+###
+### * error handling changed a bit: throws exceptions instead of silently
+###   hiding some nasties by Nigel Head <nigel.head@esa.int>
+###
+### * deals with received list tails better for non-proper lists
+###                       by Nigel Head <nigel.head@esa.int>
+###
 ### erl_term.py -- python types/classes for all erlang types.
 ###                Also: packing and unpacking all types to/from
 ###                      the erlang external binary format
@@ -60,6 +77,8 @@ class ErlAtom:
         return "<erl-atom: %s>" % `self.atomText`
     def equals(self, other):
         return self.atomText == other.atomText
+    def __str__(self):
+        return self.atomText
 
 def IsErlAtom(term):
     """Checks whether a term is an Erlang atom or not."""
@@ -143,13 +162,37 @@ def ErlTuple(elementsAsList):
 def ErlList(elements):
     """An Erlang list. This maps to a python list."""
     return elements
-
+    
+class ErlImproperList:
+    """An improper erlang list (one where the tail is not []).
+    Can be iterated over to get the elements, by default will include
+    the tail as the last element."""
+    def __init__(self,elements,tail,useTail=1):
+        self.elements = elements
+        self.tail = tail
+        # if true, we include tail element in iterations on this list
+        self.iterOnTail = useTail
+    def __repr__(self):
+        return "<erl-improper-list: head=%s, tail=%s>" % (`self.elements`,`self.tail`)
+    def equals(self,other):
+        return self.elements==other.elements and self.tail==other.tail
+    def __getitem__(self,key):
+        try:
+            return self.elements[key]
+        except IndexError:
+            if self.iterOnTail and key==len(self.elements):
+                return self.tail
+            raise IndexError
+        
+def IsErlImproperList(term):
+    return type(term)== types.InstanceType and isinstance(term, ErlImproperList)
+    
 class ErlBinary:
     """An Erlang binary. The following attributes are defined:
     contents = string
     """
-    def __init__(self, contets):
-        self.contents = contets        #  a string
+    def __init__(self, contents):
+        self.contents = contents        #  a string
     def __repr__(self):
         return "<erl-binary: size=%d>" % len(self.contents)
     def equals(self, other):
@@ -228,7 +271,10 @@ def BinaryToTerm(binary):
     Returns: term
     Throws:  "BinaryToTerm: Extraneous data in binary"
     """
-    (term, remaining) = _UnpackOneTermTop(binary)
+    try:
+        (term, remaining) = _UnpackOneTermTop(binary)
+    except:
+        raise "BinaryToTerm: Panic -- invalid binary received?"
     if len(remaining) != 0:
         raise "BinaryToTerm: Extraneous data in binary"
     return term
@@ -243,9 +289,12 @@ def BinariesToTerms(binary):
     Returns: list(term)
     Throws:  "BinaryToTerm: Extraneous data in binary"
     """
-    (terms, remaining) = BufToTerm(binary)
+    try:
+        (terms, remaining) = BufToTerm(binary)
+    except:
+        raise "BinariesToTerms: Panic -- invalid binary received?"
     if len(remaining) != 0:
-        raise "BinaryToTerm: Extraneous data in binary"
+        raise "BinariesToTerms: Extraneous data in binary"
     return terms
 
 def BufToTerm(data):
@@ -273,21 +322,16 @@ def _UnpackOneTerm(data):
         return (None, data)
 
     data0 = ord(data[0])
+
     if data0 == MAGIC_SMALL_INTEGER:
-        if dataLen < 2:
-            return (None, data)
         n = _ReadInt1(data[1])
         return (ErlNumber(n), data[2:])
 
     elif data0 == MAGIC_INTEGER:
-        if dataLen < 5:
-            return (None, data)
         n = _ReadInt4(data[1:5])
         return (ErlNumber(n), data[5:])
 
     elif data0 == MAGIC_FLOAT:
-        if dataLen < 32:
-            return (None, data)
         floatData = data[1:32]
         try:
             nullIndex = string.index(floatData, chr(0))
@@ -298,99 +342,65 @@ def _UnpackOneTerm(data):
         return (ErlNumber(f), data[32:])
 
     elif data0 == MAGIC_ATOM:
-        if dataLen < 3:
-            return (None, data)
         atomLen = _ReadInt2(data[1:3])
-        if dataLen < 3 + atomLen:
-            return (None, data)
         atomText = data[3:3 + atomLen]
         return (ErlAtom(atomText), data[3 + atomLen:])
 
     elif data0 == MAGIC_REFERENCE:
         (node, remainingData) = _UnpackOneTerm(data[1:])
-        if node == None:
-            return (None, data)
-        if len(remainingData) < 5:
-            return (None, data)
         id = _ReadId(remainingData[0:4])
         creation = _ReadCreation(remainingData[4])
         return (ErlRef(node, id, creation), remainingData[5:])
 
     elif data0 == MAGIC_PORT:
         (node, remainingData) = _UnpackOneTerm(data[1:])
-        if node == None:
-            return (None, data)
-        if len(remainingData) < 5:
-            return (None, data)
         id = _ReadId(remainingData[0:4])
         creation = _ReadCreation(remainingData[4])
         return (ErlPort(node, id, creation), remainingData[5:])
 
     elif data0 == MAGIC_PID:
         (node, remainingData) = _UnpackOneTerm(data[1:])
-        if node == None:
-            return (None, data)
-        if len(remainingData) < 9:
-            return (None, data)
         id = _ReadId(remainingData[0:4], 15)
         serial = _ReadInt4(remainingData[4:8])
         creation = _ReadCreation(remainingData[8])
         return (ErlPid(node, id, serial, creation), remainingData[9:])
 
     elif data0 == MAGIC_SMALL_TUPLE:
-        if dataLen < 2:
-            return (None, data)
         arity = _ReadInt1(data[1])
         (elements, remainingData) = _UnpackTermSeq(arity, data[2:])
-        if elements == None:
-            return (None, data)
         return (ErlTuple(elements), remainingData)
 
     elif data0 == MAGIC_LARGE_TUPLE:
-        if dataLen < 5:
-            return (None, data)
         arity = _ReadInt4(data[1:5])
         (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
-        if elements == None:
-            return (None, data)
         return (ErlTuple(elements), remainingData)
 
     elif data0 == MAGIC_NIL:
         return (ErlList([]), data[1:])
 
     elif data0 == MAGIC_STRING:
-        if dataLen < 3:
-            return (None, data)
         strlen = _ReadInt2(data[1:3])
-        if dataLen < 3 + strlen:
-            return (None, data)
         s = data[3:3 + strlen]
         return (ErlString(s), data[3 + strlen:])
 
     elif data0 == MAGIC_LIST:
-        if dataLen < 5:
-            return (None, data)
+        # get the list head
         arity = _ReadInt4(data[1:5])
         (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
-        if elements == None:
-            return (None, data)
-        return (ErlList(elements), remainingData[1:]) # skip MAGIC_NIL
+        # now get the list tail (usually this is [] but
+        # for not well formed lists it may be any term).
+        (tail, newRemainingData) = _UnpackOneTerm(remainingData)
+        if tail <> []:
+            return (ErlImproperList(elements,tail), newRemainingData)
+        return (ErlList(elements), newRemainingData)
 
     elif data0 == MAGIC_BINARY:
-        if dataLen < 5:
-            return (None, data)
         binlen = _ReadInt4(data[1:5])
-        if dataLen < 5 + binlen:
-            return (None, data)
         s = data[5:5 + binlen]
         return (ErlBinary(s), data[5 + binlen:])
 
     elif data0 == MAGIC_SMALL_BIG:
-        if dataLen < 2:
-            return (None, data)
         n = _ReadInt1(data[1])
-        if dataLen < 2 + 1 + n:
-            return (None, data)
         sign = _ReadInt1(data[2])
         bignum = 0L
         for i in range(n):
@@ -401,11 +411,7 @@ def _UnpackOneTerm(data):
         return (ErlNumber(bignum), data[3 + n:])
 
     elif data0 == MAGIC_LARGE_BIG:
-        if dataLen < 5:
-            return (None, data)
         n = _ReadInt4(data[1:5])
-        if dataLen < 5 + 1 + n:
-            return (None, data)
         sign = _ReadInt1(data[5])
         bignum = 0L
         for i in range(n):
@@ -416,31 +422,19 @@ def _UnpackOneTerm(data):
         return (ErlNumber(bignum), data[6 + n:])
 
     elif data0 == MAGIC_NEW_CACHE:
-        if dataLen < 4:
-            return (None, data)
         index = _ReadInt1(data[1])
         atomLen = _ReadInt2(data[2:4])
-        if dataLen < 4 + atomLen:
-            return (None, data)
         atomText = data[4:4 + atomLen]
         return (ErlAtom(atomText, cache=index), data[4 + atomLen:])
 
     elif data0 == MAGIC_CACHED_ATOM:
-        if dataLen < 2:
-            return (None, data)
         index = _ReadInt1(data[1])
         return (ErlAtom(None, cache=index), data[2:])
 
     elif data0 == MAGIC_NEW_REFERENCE:
-        if dataLen < 3:
-            return (None, data)
         idLen = _ReadInt2(data[1:3])
         (node, remainingData) = _UnpackOneTerm(data[3:])
-        if node == None:
-            return (None, data)
         nprim = 4 * idLen
-        if len(remainingData) < 1 + nprim:
-            return (None, data)
         creation = _ReadCreation(remainingData[0])
         remainingData = remainingData[1:]
         id0 = _ReadId(remainingData[0:4])
@@ -453,24 +447,12 @@ def _UnpackOneTerm(data):
         return (ErlRef(node, ids, creation), remainingData)
 
     elif data0 == MAGIC_FUN:
-        if dataLen < 5:
-            return (None, data)
         freevarsLen = _ReadInt4(data[1:5])
         (pid, remainingData1) = _UnpackOneTerm(data[5:])
-        if pid == None:
-            return (None, data)
         (module, remainingData2) = _UnpackOneTerm(remainingData1)
-        if module == None:
-            return (None, data)
         (index, remainingData3)  = _UnpackOneTerm(remainingData2)
-        if index == None:
-            return (None, data)
         (uniq, remainingData4) = _UnpackOneTerm(remainingData3)
-        if uniq == None:
-            return (None, data)
         (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,remainingData4)
-        if freeVars == None:
-            return (None, data)
         print "MAGIC_FUN"
         print pid
         print module
@@ -491,8 +473,6 @@ def _UnpackTermSeq(numTerms, data):
     remainingData = data
     for i in range(numTerms):
         (term, newRemainingData) = _UnpackOneTerm(remainingData)
-        if term == None:
-            return (None, data)
         seq.append(term)
         remainingData = newRemainingData
     return (seq, remainingData)
