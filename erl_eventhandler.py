@@ -1,28 +1,35 @@
-### erl_eventhandler.py -- An event handler
+### py_interface -- A Python-implementation of an Erlang node
 ###
 ### $Id$
 ###
-### Copyright (C) 2000 Tomas Abrahamsson
-### 
+### Copyright (C) 2002  Tomas Abrahamsson
+###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
 ### 
-### This file is part of the Albertina caller id displayer
+### This file is part of the Py-Interface library
 ###
-### The Albertina program is free software; you can redistribute it
-### and/or modify it under the terms of the GNU Library General Public License
-### as published by the Free Software Foundation; either version 2 of the
-### License, or (at your option) any later version.
-###
-### The Albertina program is distributed in the hope that it will be
-### useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library
-### General Public License for more details.
+### This library is free software; you can redistribute it and/or
+### modify it under the terms of the GNU Library General Public
+### License as published by the Free Software Foundation; either
+### version 2 of the License, or (at your option) any later version.
 ### 
-### You should have received a copy of the GNU Library General Public License
-### along with the Albertina program; see the file COPYING.LIB.  If not,
-### write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-### Boston, MA 02111-1307, USA. */
+### This library is distributed in the hope that it will be useful,
+### but WITHOUT ANY WARRANTY; without even the implied warranty of
+### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+### Library General Public License for more details.
 ### 
+### You should have received a copy of the GNU Library General Public
+### License along with this library; if not, write to the Free
+### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+### erl_eventhandler.py -- A general event handler.
+###                        It provides the possibility to register
+###                        callbacks to be called at certain events:
+###                        * when there is data to read on a file descriptor
+###                        * when it's posssible to write to a file descriptor
+###                        * at file descriptor exceptions
+###                        * after timeout
+
 
 
 import os

@@ -1,31 +1,31 @@
+### py_interface -- A Python-implementation of an Erlang node
+###
+### $Id$
+###
+### Copyright (C) 2002  Tomas Abrahamsson
+###
+### Author: Tomas Abrahamsson <tab@lysator.liu.se>
+### 
+### This file is part of the Py-Interface library
+###
+### This library is free software; you can redistribute it and/or
+### modify it under the terms of the GNU Library General Public
+### License as published by the Free Software Foundation; either
+### version 2 of the License, or (at your option) any later version.
+### 
+### This library is distributed in the hope that it will be useful,
+### but WITHOUT ANY WARRANTY; without even the implied warranty of
+### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+### Library General Public License for more details.
+### 
+### You should have received a copy of the GNU Library General Public
+### License along with this library; if not, write to the Free
+### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
 ### erl_term.py -- python types/classes for all erlang types.
 ###                Also: packing and unpacking all types to/from
 ###                      the erlang external binary format
 ###
-### $Id$
-###
-### Copyright (C) 2001 Tomas Abrahamsson
-### 
-### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
-### This file is part of the Py-Interface
-###
-### The Py-Interface is free software; you can redistribute it
-### and/or modify it under the terms of the GNU Library General Public License
-### as published by the Free Software Foundation; either version 2 of the
-### License, or (at your option) any later version.
-###
-### The Py-Interface is distributed in the hope that it will be
-### useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
-### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Library
-### General Public License for more details.
-### 
-### You should have received a copy of the GNU Library General Public License
-### along with the Py-Interface; see the file COPYING.LIB.  If not,
-### write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
-### Boston, MA 02111-1307, USA.
-### 
-
 
 import os
 import sys
