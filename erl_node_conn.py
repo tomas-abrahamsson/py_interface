@@ -184,10 +184,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                     if len(terms) == 2:
                         controlMsg = terms[0]
                         msg = terms[1]
-                        self._passThroughMsgCb(controlMsg, msg)
+                        self._passThroughMsgCb(self, self.GetPeerNodeName(),
+                                               controlMsg, msg)
                     elif len(terms) == 1:
                         controlMsg = terms[0]
-                        self._passThroughMsgCb(controlMsg, msg)
+                        self._passThroughMsgCb(self, self.GetPeerNodeName(),
+                                               controlMsg, msg)
                     else:
                         debugTxt = "PassThrough-msg: terms=%s" % `terms`
                         erl_common.DebugUnrecognizedMsg(debugTxt, data)
