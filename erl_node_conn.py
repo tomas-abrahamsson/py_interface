@@ -1,4 +1,5 @@
 import sys
+import time
 import types
 import string
 import socket
@@ -30,50 +31,78 @@ def GenChallenge():
 
 class Ticker:
     def __init__(self, netTickTime, timeToTickCb, noResponseCb):
-        self._connection = ""
         self._netTickTime = netTickTime
         self._evhandler = erl_eventhandler.GetEventHandler()
-        self._timeToTickCb = timeToTickCb
+        self._InitStartResponseTimer(netTickTime, noResponseCb)
+        self._InitStartTickTimer(netTickTime, timeToTickCb)
+
+    def _InitStartResponseTimer(self, netTickTime, noResponseCb):
         self._noResponseCb = noResponseCb
+        self._noResponseTimeout = netTickTime * 1.25
+        self._responseCheckTimeout = netTickTime * 0.25
+        print "resonse-check: noResponseTimeout=%g" %self._noResponseTimeout
+        print "resonse-check: checkTimeout=%g" %self._responseCheckTimeout
+        self._responseDoCheck = 1
+        self._timeForLastResponse = time.time()
         self._StartResponseTimer()
-        self._StartTickTimer()
 
     def _StartResponseTimer(self):
-        netTickTime = self._netTickTime
-        timerId = self._evhandler.AddTimerEvent(netTickTime, self._NoResponse)
-        self._checkResponseTimerId = timerId
+        if self._responseDoCheck:
+            timeout = self._responseCheckTimeout
+            cb = self._CheckResponse
+            timerId = self._evhandler.AddTimerEvent(timeout, cb)
+            self._checkResponseTimerId = timerId
 
     def _StopResponseTimer(self):
-        if self._checkResponseTimerId != None:
-            self._evhandler.DelTimerEvent(self._checkResponseTimerId)
-        self._checkResponseTimerId = None
+        self._responseDoCheck = 0
 
     def GotResonse(self):
-        self._StopResponseTimer()
-        self._StartResponseTimer()
+        print "%g: got resonse" % time.time()
+        self._timeForLastResponse = time.time()
 
-    def _NoResponse(self):
-        # Don't restart the response timer
-        self._checkResponseTimerId = None
-        self._noResponseCb()
+    def _CheckResponse(self):
+        print "%g: checking resonse..." % time.time()
+        if self._responseDoCheck:
+            now = time.time()
+            if now > self._timeForLastResponse + self._noResponseTimeout:
+                print "checking resonse: no response"
+                self._responseDoCheck = 0
+                self._noResponseCb()
+            else:
+                self._StartResponseTimer()
                                       
+    def _InitStartTickTimer(self, netTickTime, timeToTickCb):
+        self._timeToTickCb = timeToTickCb
+        self._tickTimeout = netTickTime * 0.25
+        self._tickCheckTimeout = netTickTime * 0.125
+        print "tickTimeout=%g" % self._tickTimeout
+        print "tickCheckTimeout=%g" % self._tickCheckTimeout
+        self._tickDoCheck = 1
+        self._timeForLastTick = time.time()
+        self._StartTickTimer()
+
     def _StartTickTimer(self):
-        timerId = self._evhandler.AddTimerEvent(self._netTickTime, self._Tick)
-        self._tickTimerId = timerId
+        if self._tickDoCheck:
+            timeout = self._tickCheckTimeout
+            cb = self._Tick
+            timerId = self._evhandler.AddTimerEvent(timeout, cb)
+            self._tickTimerId = timerId
 
     def _StopTickTimer(self):
-        if self._tickTimerId != None:
-            self._evhandler.DelTimerEvent(self._tickTimerId)
-        self._tickTimerId = None
+        self._tickDoCheck = 0
 
     def RestartTick(self):
-        self._StopTickTimer()
-        self._StartTickTimer()
+        self._timeForLastTick = time.time()
 
     def _Tick(self):
-        self._tickTimerId = None
-        self._StartTickTimer()
-        self._timeToTickCb()
+        if self._tickDoCheck:
+            print "Checking tick..."
+            self._StartTickTimer()
+            now = time.time()
+            if now > self._timeForLastTick + self._tickTimeout:
+                print "ticking..."
+                self._timeToTickCb()
+                self._timeForLastTick = time.time()
 
     def Stop(self):
         self._StopResponseTimer()
@@ -109,6 +138,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._connectFailedCb = connectFailedCb
         self._connectionBrokenCb = connectionBrokenCb
         self._passThroughMsgCb = passThroughMsgCb
+        self._peerName = "(unknown)@%s" % hostName
         if self.Connect(hostName, portNum):
             self._SendName()
             self._state = self._STATE_HANDSHAKE_RECV_STATUS
@@ -140,12 +170,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             self.Close()
             if self._state != self._STATE_CONNECTED:
                 self._state = self._STATE_DISCONNECTED
-                self._connectFailedCb()
+                self._connectFailedCb(self, self.GetPeerNodeName())
             else:
                 self._state = self._STATE_DISCONNECTED
                 if self._tickTimers != None:
                     self._tickTimers.Stop()
-                self._connectionBrokenCb()
+                self._connectionBrokenCb(self, "")
             return
 
         self._recvdata = self._recvdata + newData
@@ -196,7 +226,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE:
             # First check that the correct message came in
             if data[0] != "n":
-                erl_common.DebugUnrecognizedMsg(M, "handshake:recv_cha", data)
+                erl_common.DebugHex(M, "handshake:recv_cha", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
@@ -209,8 +239,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_ACK:
             # First check that the correct message came in
             if data[0] != "a":
-                erl_common.DebugUnrecognizedMsg(M, "handshake:recv_cha_ack",
-                                                data)
+                erl_common.DebugHex(M, "handshake:recv_cha_ack", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
@@ -253,7 +282,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             else:
                 erl_common.DebugHex(M, "msgType=%c" % msgType, data)
         else:
-            erl_common.DebugUnrecognizedMsg(M, "state=%d" % self._state, data)
+            erl_common.DebugHex(M, "state=%d" % self._state, data)
 
 
     def _Tick(self):
@@ -340,7 +369,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._connectionBrokenCb = connectionBrokenCb
         self._passThroughMsgCb = passThroughMsgCb
         self._state = self._STATE_HANDSHAKE_RECV_NAME
-        self._peerName = None
+        self._peerName = nodeName
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
         # These are started once the connection is up
