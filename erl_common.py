@@ -35,15 +35,83 @@ def PackInt4(i):
            chr((i >>  0) & 255)
 
 
-def Debug(s):
-    print s
+def NodeNameMaybeAddHostName(nodeName):
+    if "@" in nodeName:
+        return nodeName
+    hostName = GetHostName()
+    return nodeName + "@" + hostName
 
-def DebugUnrecognizedMsg(txt, msg):
-    print "Unrecognized message", txt
-    HexDump(msg)
+def GetFullyQualifiedHostName():
+    raise "Not implemented"
+    
+def GetHostName():
+    hostName = socket.gethostname()
+    if "." in hostName:
+        components = string.split(hostName, ".")
+        return components[0]
+    else:
+        return hostName
 
 
-def HexDump(string):
+def getenv(e):
+    if os.environ.has_key(e):
+        return os.environ[e]
+    else:
+        return ""
+
+
+
+def IndexSeq(seq):
+    """Given a sequence, return a list of tuples (i, elem[i]).
+Example: IndexSeq(["a", "b", "c"]) ==> [(0, "a"), (1, "b"), (2, "c")]."""
+    return map(None, range(len(seq)), seq)
+
+
+_logfile = None
+def SetLogFile(fileName):
+    global _logfile
+    _logfile = open(fileName, "w")
+
+def LogFileClose():
+    global _logfile
+    if _logfile != None:
+        _logfile.close()
+
+def Log(str):
+    global _logfile
+    if _logfile != None:
+        _logfile.write(str)
+        _logfile.write("\n")
+        _logfile.flush()
+    
+
+_modulesToDebug = []
+_debugAllModules = 0
+
+def DebugOnAll():
+    global _modulesToDebug, _debugAllModules
+    _debugAllModules = 1
+
+
+def DebugOn(moduleList):
+    global _modulesToDebug, _debugAllModules
+    _debugAllModules = 0
+    _modulesToDebug = moduleList
+
+def Debug(module, txt):
+    global _modulesToDebug, _debugAllModules
+    if _debugAllModules or module in _modulesToDebug:
+        _DebugEmitText("%s: %s" % (module, txt))
+
+def DebugHex(module, txt, msg):
+    hexMsg = HexDumpFormat(msg)
+    _DebugEmitText("%s: %s\n%s" % (module, txt, hexMsg))
+
+def _DebugEmitText(txt):
+    print txt
+
+
+def _HexDumpFormat(string):
     def dump_chars(addr, s):
         hexString = ""
         ascString = ""
@@ -62,28 +130,52 @@ def HexDump(string):
 
     remaining_chars = string;
     addr = 0
+    result = ""
     while len(remaining_chars) > 0:
         if len(remaining_chars) < 16:
-            print dump_chars(addr, remaining_chars)
+            result = result + dump_chars(addr, remaining_chars)
             remaining_chars = ""
         else:
-            print dump_chars(addr, remaining_chars[:16])
+            result = result + dump_chars(addr, remaining_chars[:16])
             remaining_chars = remaining_chars[16:]
             addr = addr + 16
+    return result
 
-def NodeNameMaybeAddHostName(nodeName):
-    if "@" in nodeName:
-        return nodeName
-    hostName = GetHostName()
-    return nodeName + "@" + hostName
+class VCallback:
+    def __init__(self, callback, optArgs, namedArgs):
+        self.callback = callback
+        self.optArgs = optArgs
+        self.namedArgs = namedArgs
 
-def GetFullyQualifiedHostName():
-    raise "Not implemented"
-    
-def GetHostName():
-    hostName = socket.gethostname()
-    if "." in hostName:
-        components = string.split(hostName, ".")
-        return components[0]
-    else:
-        return hostName
+    def __call__(self, *extraArgs):
+        try:
+            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Error in VCallback %s" % self.__repr__()
+            print "  extraArgs=%s" % `extraArgs`
+            print "  self.optArgs=%s" % `self.optArgs`
+            print "  self.namedArgs=%s" % `self.namedArgs`
+            raise
+
+    def __repr__(self):
+        return "<VCallback to %s>" % `self.callback`
+
+class Callback:
+    def __init__(self, callback, *optArgs, **namedArgs):
+        self.callback = callback
+        self.optArgs = optArgs
+        self.namedArgs = namedArgs
+
+    def __call__(self, *extraArgs):
+        try:
+            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+        except KeyboardInterrupt:
+            raise
+        except:
+            print "Error in VCallback %s" % self.__repr__()
+            raise
+            
+    def __repr__(self):
+        return "<Callback to %s>" % `self.callback`
