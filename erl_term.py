@@ -22,6 +22,10 @@
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
+### erl_term.py -- python types/classes for all erlang types.
+###                Also: packing and unpacking all types to/from
+###                      the erlang external binary format
+
 ### Log of fixes:
 ###
 ### * integer unpacking by Jimmy Olgeni <olgeni@uli.it>
@@ -38,11 +42,6 @@
 ###
 ### * deals with received list tails better for non-proper lists
 ###                       by Nigel Head <nigel.head@esa.int>
-###
-### erl_term.py -- python types/classes for all erlang types.
-###                Also: packing and unpacking all types to/from
-###                      the erlang external binary format
-###
 
 import os
 import sys
