@@ -29,6 +29,7 @@
 
 import os
 import sys
+import math
 import types
 import string
 
@@ -76,8 +77,8 @@ class ErlRef:
         self.id = id                    # id is either an int or a list of ints
         self.creation = creation
     def __repr__(self):
-        return "<erl-ref: node=%s, id=%d, creation=%d>" % \
-               (`self.node`, self.id, self.creation)
+        return "<erl-ref: node=%s, id=%s, creation=%d>" % \
+               (`self.node`, `self.id`, self.creation)
     def equals(self, other):
         return self.node.equals(other.node) and \
                self.id == other.id and \
@@ -373,7 +374,7 @@ def _UnpackOneTerm(data):
         (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
         if elements == None:
             return (None, data)
-        return (ErlList(elements), remainingData[1:])
+        return (ErlList(elements), remainingData[1:]) # skip MAGIC_NIL
 
     elif data0 == MAGIC_BINARY:
         if dataLen < 5:
@@ -443,12 +444,13 @@ def _UnpackOneTerm(data):
         creation = _ReadCreation(remainingData[0])
         remainingData = remainingData[1:]
         id0 = _ReadId(remainingData[0:4])
-        id = [id0]
+        ids = [id0]
         remainingData = remainingData[4:]
-        for i in idLen:
-            i = _ReadInt4(remainingData[0:4])
+        for i in range(idLen-1):
+            id = _ReadInt4(remainingData[0:4])
             remainingData = remainingData[4:]
-        return (ErlRef(node, creation, id), remainingData)
+            ids.append(id)
+        return (ErlRef(node, ids, creation), remainingData)
 
     elif data0 == MAGIC_FUN:
         if dataLen < 5:
@@ -469,6 +471,12 @@ def _UnpackOneTerm(data):
         (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,remainingData4)
         if freeVars == None:
             return (None, data)
+        print "MAGIC_FUN"
+        print pid
+        print module
+        print index
+        print uniq
+        print freeVars
         return (ErlFun(pid, module, index, uniq, freeVars),
                 remainingData5)
 
@@ -516,7 +524,7 @@ def TermToBinary(term):
     TERM = term
 
     Returns: string
-    Throws:  "Can't pack value of type ..."
+    Throws:  \"Can't pack value of type ...\"
     """
     return chr(MAGIC_VERSION) + _PackOneTerm(term)
 
@@ -584,7 +592,7 @@ def _PackLong(term):
         return _PackInt(term)
     else:
         numBytesNeeded = int(math.log(term) / math.log(256)) + 1
-        if numBytesNeeded > 1:
+        if numBytesNeeded > 255:
             return _PackInt1(MAGIC_LARGE_BIG) + \
                    _PackInt4(numBytesNeeded) + \
                    _PackLongBytes(term, numBytesNeeded)
@@ -595,9 +603,9 @@ def _PackLong(term):
 
 def _PackLongBytes(term, numBytesNeeded):
     if term < 0:
-        sign = _PackInt(1)
+        sign = _PackInt1(1)
     else:
-        sign = _PackInt(0)
+        sign = _PackInt1(0)
     bignum = term
     bignumBytes = sign
     for i in range(numBytesNeeded):
