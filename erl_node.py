@@ -55,7 +55,8 @@ class ErlMBox:
             fun = erl_term.ErlAtom(fun)
         self.Send(("rex", remote_node),
                   (self.Self(),
-                   (mod, fun, args, erl_term.ErlAtom("user"))))
+                   (erl_term.ErlAtom("call"),
+                    mod, fun, args, erl_term.ErlAtom("user"))))
 
     ##
     ## Routines to be called from the node only
@@ -147,6 +148,12 @@ class ErlNode:
         if self._isServerPublished:
             self._epmd.Close()
             self._isServerPublished = 0
+
+    def DumpConnections(self):
+        print "Connections:"
+        for k in self._connections.keys():
+            print "  %s --> %s" % (`k`, `self._connections[k]`)
+        print "--"
 
 
     ##
@@ -263,9 +270,13 @@ class ErlNode:
         raise "Failed to connect to epmd (%d)" % errorResult
 
     def _NodeUp(self, connection, nodeName):
+        erl_common.Debug("NODEUP: nodeName=%s connection=%s" % \
+                         (nodeName, connection))
         self._connections[nodeName] = connection
 
     def _NodeDown(self, connection, nodeName):
+        erl_common.Debug("NODENOWN: nodeName=%s connection=%s" % \
+                         (nodeName, connection))
         if self._connections.has_key(nodeName):
             del self._connections[nodeName]
     
@@ -287,7 +298,7 @@ class ErlNode:
                                             out, remoteNodeName)
             connectFailedCb = common.Callback(self._PingFailed,
                                               out, remoteNodeName)
-            connectionBrokenCb = common.Callback(self._OutConnectionBroken,
+            connectionBrokenCb = common.Callback(self._NodeDown,
                                                  out, remoteNodeName)
             passThroughMsgCb = common.Callback(self._PassThroughMsg,
                                                out, remoteNodeName)
@@ -300,7 +311,7 @@ class ErlNode:
     def _PingSucceeded(self, connection, remoteNodeName):
         callbacks = self._ongoingPings[remoteNodeName]
         del self._ongoingPings[remoteNodeName]
-        self._connections[remoteNodeName] = connection
+        self._NodeUp(connection, remoteNodeName)
         for cb in callbacks:
             cb("pong")
 
