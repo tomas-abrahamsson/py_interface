@@ -10,6 +10,7 @@ from Tkinter import *
 
 import erl_term
 import erl_node
+import erl_opts
 import erl_eventhandler
 
 class TkTest:
@@ -164,7 +165,7 @@ def main(argv):
 
 
     print "Creating node..."
-    n = erl_node.ErlNode(ownNodeName, cookie)
+    n = erl_node.ErlNode(ownNodeName, erl_opts.ErlNodeOpts(cookie=cookie))
     print "Publishing node..."
     n.Publish()
     print "Creating mbox..."

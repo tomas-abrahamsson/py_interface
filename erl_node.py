@@ -5,6 +5,7 @@ import string
 
 import erl_epmd
 import erl_term
+import erl_opts
 import erl_common
 import erl_node_conn
 import erl_eventhandler
@@ -135,13 +136,10 @@ class ErlNode:
     CTRLMSGOP_MONITOR_P_EXIT = 21
     # end of operations
     
-    def __init__(self, nodeName, cookie="",
-                 distrVersion = 5,
-                 distrFlags = DISTR_FLAGS_EXTENDEDREFERENCES):
-        self._nodeName = erl_common.NodeNameMaybeAddHostName(nodeName)
-        self._cookie = cookie
-        self._distrVersion = distrVersion
-        self._distrFlags = distrFlags
+    def __init__(self, nodeName, opts=erl_opts.ErlNodeOpts()):
+        shortNodeNames = opts.GetShortNodeNames()
+        self._nodeName = erl_common.AlignNodeName(nodeName, shortNodeNames)
+        self._opts = opts
 
         self._creation = 0
         self._connections = {}
@@ -160,9 +158,7 @@ class ErlNode:
         self._cbId = 0
 
         self._server = erl_node_conn.ErlNodeServerSocket(self._nodeName,
-                                                         self._cookie,
-                                                         self._distrVersion,
-                                                         self._distrFlags)
+                                                         self._opts)
         self._portNum = self._server.Start(self._NodeUp, self._NodeDown,
                                            self._PassThroughMsg)
         self._epmd.SetOwnPortNum(self._portNum)
@@ -380,9 +376,7 @@ class ErlNode:
         else:
             [otherNode, otherHost] = string.split(remoteNodeName, "@")
             out = erl_node_conn.ErlNodeOutConnection(self._nodeName,
-                                                     self._cookie,
-                                                     self._distrVersion,
-                                                     self._distrFlags)
+                                                     self._opts)
             connectedOkCb = erl_common.Callback(self._PingSucceeded,
                                                 out, remoteNodeName)
             connectFailedCb = erl_common.Callback(self._PingFailed,

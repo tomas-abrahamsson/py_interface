@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 ###
 ###
 ### Test code
@@ -7,6 +9,7 @@ import sys
 import string
 import getopt
 
+import erl_opts
 import erl_common
 import erl_node_conn
 import erl_eventhandler
@@ -26,7 +29,7 @@ def __TestPassThroughMsg(controlMsg, msg=None):
     print "  controlMsg=%s" % `controlMsg`
     print "  msg=%s" % `msg`
 
-def testmain(argv):
+def main(argv):
     global e
 
     try:
@@ -62,7 +65,7 @@ def testmain(argv):
     else:
         sys.exit(1)
 
-    ownNodeName = erl_common.NodeNameMaybeAddHostName(ownNodeName)
+    ownNodeName = erl_common.AlignNode(ownNodeName, 1)
 
     print "Connecting to %s:%d"
     print "  ownNodeName=\"%s\"" % ownNodeName
@@ -70,8 +73,8 @@ def testmain(argv):
     print "  ownDistrVersion=%d" % ownDistrVersion
     print "  ownFlags=%d" % ownFlags
 
-    c = erl_node_conn.ErlNodeOutConnection(ownNodeName, cookie,
-                                           ownDistrVersion, ownFlags)
+    opts = erl_opts.ErlNodeOpts(cookie=cookie)
+    c = erl_node_conn.ErlNodeOutConnection(ownNodeName, opts)
     c.InitiateConnection(hostName, portNum,
                          __TestConnectOk,
                          __TestConnectFailed,
@@ -81,6 +84,5 @@ def testmain(argv):
     evhandler.Loop()
 
 
-if __name__ == '__main__':
-    testmain(sys.argv)
+main(sys.argv)
 

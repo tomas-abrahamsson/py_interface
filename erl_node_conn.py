@@ -6,6 +6,7 @@ import random
 import md5
 
 
+import erl_opts
 import erl_term
 import erl_common
 import erl_async_conn
@@ -34,15 +35,13 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     _STATE_HANDSHAKE_RECV_CHALLENGE_ACK = 6
     _STATE_CONNECTED = 7
 
-    def __init__(self, nodeName, cookie, distrVersion, flags):
+    def __init__(self, nodeName, opts):
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
         self._recvdata = ""
         self._hostName = None
         self._portNum = None
         self._nodeName = nodeName
-        self._cookie = cookie
-        self._distrVersion = distrVersion
-        self._flags = flags
+        self._opts = opts
         self._peerName = None
         self._state = self._STATE_DISCONNECTED
         # 2 bytes for the packet length during the handshake, then 4 bytes
@@ -161,7 +160,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
             digest = data[1:]
-            if CheckDigest(digest, self._challengeToPeer, self._cookie):
+            ownCookie = self._opts.GetCookie()
+            if CheckDigest(digest, self._challengeToPeer, ownCookie):
                 self._packetLenSize = 4
                 self._state = self._STATE_CONNECTED
                 self._connectOkCb()
@@ -202,8 +202,8 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def _SendName(self):
         packet = "n" + \
-                 self.PackInt2(self._distrVersion) + \
-                 self.PackInt4(self._flags) + \
+                 self.PackInt2(self._opts.GetDistrVersion()) + \
+                 self.PackInt4(self._opts.GetDistrFlags()) + \
                  self._nodeName
         self._SendHandshakeMsg(packet)
 
@@ -211,7 +211,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._SendHandshakeMsg("true")
 
     def _SendChallengeReply(self, challenge):
-        digest = GenDigest(challenge, self._cookie)
+        digest = GenDigest(challenge, self._opts.GetCookie())
         challengeToPeer = GenChallenge()
         self._challengeToPeer = challengeToPeer
         packet = "r" + self.PackInt4(challengeToPeer) + digest
@@ -229,12 +229,10 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
 class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
-    def __init__(self, nodeName, cookie, distrVersion, flags):
+    def __init__(self, nodeName, opts):
         erl_async_conn.ErlAsyncServer.__init__(self)
         self._nodeName = nodeName
-        self._cookie = cookie
-        self._distrVersion = distrVersion
-        self._flags = flags
+        self._opts = opts
         self._passThroughMsgCb = self._Sink
         self._nodeUpCb = self._Sink
         self._nodeDownCb = self._Sink
@@ -248,8 +246,7 @@ class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
     def _NewConnection(self, s, remoteAddr):
         erl_common.Debug(M, "new connection from %s" % `remoteAddr`)
         inConn = ErlNodeInConnection(s,
-                                     self._nodeName, self._cookie,
-                                     self._distrVersion, self._flags,
+                                     self._nodeName, self._opts,
                                      self._nodeUpCb, self._nodeDownCb,
                                      self._passThroughMsgCb)
 
@@ -263,7 +260,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
     _STATE_HANDSHAKE_RECV_CHALLENGE_REPLY = 5
     _STATE_CONNECTED = 7
 
-    def __init__(self, sock, nodeName, cookie, distrVersion, flags,
+    def __init__(self, sock, nodeName, opts,
                  newConnectionUpCb, connectionBrokenCb,
                  passThroughMsgCb):
         erl_async_conn.ErlAsyncPeerConnection.__init__(self, sock)
@@ -271,9 +268,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._hostName = None
         self._portNum = None
         self._nodeName = nodeName
-        self._cookie = cookie
-        self._distrVersion = distrVersion
-        self._flags = flags
+        self._opts = opts
         self._newConnectionUpCb = newConnectionUpCb
         self._connectionBrokenCb = connectionBrokenCb
         self._passThroughMsgCb = passThroughMsgCb
@@ -360,7 +355,8 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 self._state = self._STATE_DISCONNECTED
             peersChallenge = self.ReadInt4(data[1:5])
             peersDigest = data[5:]
-            if CheckDigest(peersDigest, self._challengeToPeer, self._cookie):
+            ownCookie = self._opts.GetCookie()
+            if CheckDigest(peersDigest, self._challengeToPeer, ownCookie):
                 self._SendChallengeAck(peersChallenge)
                 self._packetLenSIze = 4
                 self._state = self._STATE_CONNECTED
@@ -406,14 +402,14 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         challenge = GenChallenge()
         self._challengeToPeer = challenge
         packet = "n" + \
-                 self.PackInt2(self._distrVersion) + \
-                 self.PackInt4(self._flags) + \
+                 self.PackInt2(self._opts.GetDistrVersion()) + \
+                 self.PackInt4(self._opts.GetDistrFlags()) + \
                  self.PackInt4(challenge) + \
                  self._nodeName
         self._SendHandshakeMsg(packet)
 
     def _SendChallengeAck(self, challenge):
-        packet = "a" + GenDigest(challenge, self._cookie)
+        packet = "a" + GenDigest(challenge, self._opts.GetCookie())
         self._SendHandshakeMsg(packet)
 
     def _SendHandshakeMsg(self, packet):

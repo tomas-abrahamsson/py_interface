@@ -35,24 +35,57 @@ def PackInt4(i):
            chr((i >>  0) & 255)
 
 
-def NodeNameMaybeAddHostName(nodeName):
+def AlignNodeName(nodeName, useShortNodeNames=1):
+    if useShortNodeNames:
+        return AlignShortNodeName(nodeName)
+    else:
+        return AlignLongNodeName(nodeName)
+
+def AlignShortNodeName(nodeName):
     if "@" in nodeName:
         return nodeName
-    hostName = GetHostName()
-    return nodeName + "@" + hostName
+    fqdn = GetFullyQualifiedHostName()
+    shortHostName = string.split(fqdn, ".")[0]
+    return nodeName + "@" + shortHostName
 
-def GetFullyQualifiedHostName():
-    raise "Not implemented"
+def AlignLongNodeName(nodeName):
+    if "@" in nodeName:
+        return nodeName
+    fqdn = GetFullyQualifiedHostName()
+    return nodeName + "@" + fqdn
+
+def GetFullyQualifiedHostName(name=""):
+    """Get fully qualified domain name from name.
+
+    An empty argument is interpreted as meaning the local host.
+
+    First the hostname returned by gethostbyaddr() is checked, then
+    possibly existing aliases. In case no FQDN is available, hostname
+    is returned.
+    """
+    try:
+        # Try the builtin version if it exists.
+        # It does in Python 2.0
+        return socket.getfqdn(name)
+    except AttributeError, info:
+        # This fallback code is provided for Python 1.5.2 and earlier
+        # It is stolen with pride from Python 2.0
+        name = string.strip(name)
+        if not name or name == '0.0.0.0':
+            name = socket.gethostname()
+        try:
+            hostname, aliases, ipaddrs = socket.gethostbyaddr(name)
+        except error:
+            pass
+        else:
+            aliases.insert(0, hostname)
+            for name in aliases:
+                if '.' in name:
+                    break
+            else:
+                name = hostname
+        return name
     
-def GetHostName():
-    hostName = socket.gethostname()
-    if "." in hostName:
-        components = string.split(hostName, ".")
-        return components[0]
-    else:
-        return hostName
-
-
 def getenv(e):
     if os.environ.has_key(e):
         return os.environ[e]

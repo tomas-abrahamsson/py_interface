@@ -36,7 +36,7 @@
 %-define(trace_factor,1).
 %-endif.
 
--define(shutdown(Data), dist_util:shutdown(?LINE, Data)).
+-define(shutdown(Data), io:format("shutdown at ~p:~p~n", [?MODULE, ?LINE]),dist_util:shutdown(?LINE, Data)).
 
 %% Handshake state structure
 -record(hs_data, {

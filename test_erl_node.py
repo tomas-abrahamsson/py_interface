@@ -1,7 +1,10 @@
+#! /usr/bin/env python
+
 import sys
 import getopt
 
 import erl_node
+import erl_opts
 import erl_eventhandler
 
 ###
@@ -16,7 +19,7 @@ def __TestMBoxCallback(msg):
 
 n=None
 m=None
-def testmain(argv):
+def main(argv):
     try:
         opts, args = getopt.getopt(argv[1:], "?n:c:")
     except getopt.error, info:
@@ -37,7 +40,7 @@ def testmain(argv):
             ownNodeName = optarg
 
     print "Creating node..."
-    n = erl_node.ErlNode(ownNodeName, cookie)
+    n = erl_node.ErlNode(ownNodeName, erl_opts.ErlNodeOpts(cookie=cookie))
     print "Publishing node..."
     n.Publish()
     print "Creating mbox..."
@@ -50,5 +53,4 @@ def testmain(argv):
     evhand.Loop()
 
 
-if __name__ == '__main__':
-    testmain(sys.argv)
+main(sys.argv)
