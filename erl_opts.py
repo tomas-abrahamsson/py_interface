@@ -24,6 +24,10 @@
 
 ### erl_opts.py -- holder class for options for the node
 
+### Added a patch from Luke Gorrie, to support Erlang/OTP R10B, see
+### http://article.gmane.org/gmane.comp.lang.erlang.general/9751
+
+
 DISTR_FLAG_PUBLISHED = 1;
 DISTR_FLAG_ATOMCACHE = 2;
 DISTR_FLAG_EXTENDEDREFERENCES = 4;
@@ -32,6 +36,7 @@ DISTR_FLAG_FUNTAGS = 16;
 DISTR_FLAG_DISTMONITORNAME = 32;
 DISTR_FLAG_HIDDENATOMCACHE = 64;
 DISTR_FLAG_NEWFUNTAGS = 128;
+DISTR_FLAG_EXTENDEDPIDSPORTS = 256;
 
 class ErlNodeOpts:
     def __init__(self,
@@ -39,7 +44,8 @@ class ErlNodeOpts:
                  shortNodeNames=1,
                  cookie="",
                  distrVersion=5,
-                 distrFlags=DISTR_FLAG_EXTENDEDREFERENCES
+                 distrFlags=(DISTR_FLAG_EXTENDEDREFERENCES|
+                             DISTR_FLAG_EXTENDEDPIDSPORTS)
                  ):
         self._netTickTime = netTickTime
         self._shortNodeNames = shortNodeNames
