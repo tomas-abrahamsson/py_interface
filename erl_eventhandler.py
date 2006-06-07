@@ -116,6 +116,13 @@ class EVCallback:
     def __repr__(self):
         return "<EVCallback to %s>" % `self.callback`
 
+_tk = None
+def _GetTk():
+    global _tk
+    if _tk == None:
+        _tk = Tkinter.Frame().tk
+    return _tk
+
 
 _nextTimerId = 0
 def GetNewTimerId():
@@ -322,7 +329,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             self.timerEvents.sort()
             return newTimerEvent.id
         elif self.state == self.STATE_TK:
-            return Tkinter.Frame().tk.createtimerhandler(round(timeLeft * 1000), cb)
+            return _GetTk().createtimerhandler(round(timeLeft * 1000), cb)
 
     def DelTimerEvent(self, id):
         """Unregister a timer callback.
@@ -446,13 +453,13 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         fileNum = connection.fileno()
         if eventType == self.READ:
             cb = self.readEvents[connection][0]
-            Tkinter.Frame().tk.createfilehandler(fileNum, tkinter.READABLE, cb)
+            _GetTk().createfilehandler(fileNum, tkinter.READABLE, cb)
         elif eventType == self.WRITE:
             cb = self.writeEvents[connection][0]
-            Tkinter.Frame().tk.createfilehandler(fileNum, tkinter.WRITABLE, cb)
+            _GetTk().createfilehandler(fileNum, tkinter.WRITABLE, cb)
         elif eventType == self.EXCEPT:
             cb = self.exceptEvents[connection][0]
-            Tkinter.Frame().tk.createfilehandler(fileNum, tkinter.EXCEPTION,cb)
+            _GetTk().createfilehandler(fileNum, tkinter.EXCEPTION,cb)
 
     def _TkPopFileHandler(self, eventType, connection):
         fileNum = connection.fileno()
@@ -460,13 +467,13 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         ## are deleted when we delete a handler.
         ## The net result is that the code is all the same no matter
         ## what type of handler we delete.
-        Tkinter.Frame().tk.deletefilehandler(fileNum)
+        _GetTk().deletefilehandler(fileNum)
         if self.readEvents.has_key(connection):
             cb = self.readEvents[connection][0]
-            Tkinter.Frame().tk.createfilehandler(fileNum, tkinter.READABLE, cb)
+            _GetTk().createfilehandler(fileNum, tkinter.READABLE, cb)
         if self.writeEvents.has_key(connection):
             cb = self.writeEvents[connection][0]
-            Tkinter.Frame().tk.createfilehandler(fileNum, tkinter.WRITABLE, cb)
+            _GetTk().createfilehandler(fileNum, tkinter.WRITABLE, cb)
         if self.exceptEvents.has_key(connection):
             cb = self.exceptEvents[connection][0]
-            Tkinter.Frame().tk.createfilehandler(fileNum, tkinter.EXCEPTION,cb)
+            _GetTk().createfilehandler(fileNum, tkinter.EXCEPTION,cb)
