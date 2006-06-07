@@ -353,13 +353,13 @@ def _UnpackOneTerm(data):
 
     elif data0 == MAGIC_PORT:
         (node, remainingData) = _UnpackOneTerm(data[1:])
-        id = _ReadId(remainingData[0:4])
+        id = _ReadId(remainingData[0:4], 28)
         creation = _ReadCreation(remainingData[4])
         return (ErlPort(node, id, creation), remainingData[5:])
 
     elif data0 == MAGIC_PID:
         (node, remainingData) = _UnpackOneTerm(data[1:])
-        id = _ReadId(remainingData[0:4], 15)
+        id = _ReadId(remainingData[0:4], 28)
         serial = _ReadInt4(remainingData[4:8])
         creation = _ReadCreation(remainingData[8])
         return (ErlPid(node, id, serial, creation), remainingData[9:])
@@ -632,13 +632,13 @@ def _PackReferenceExt(term):
 
 def _PackPort(term):
     node = _PackOneTerm(term.node)
-    id = _PackId(term.id)
+    id = _PackId(term.id, 28)
     creation = _PackCreation(term.creation)
     return _PackInt1(MAGIC_PORT) + node + id + creation
 
 def _PackPid(term):
     node = _PackOneTerm(term.node)
-    id = _PackId(term.id, 15)
+    id = _PackId(term.id, 28)
     serial = _PackInt4(term.serial)
     creation = _PackCreation(term.creation)
     return _PackInt1(MAGIC_PID) + node + id + serial + creation
