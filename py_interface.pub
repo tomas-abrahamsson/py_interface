@@ -1,8 +1,8 @@
 %% This line tells emacs to use -*- erlang -*- mode for this file
 {name, "py_interface"}.
-{vsn, {0,92}}.
+{vsn, {0,93}}.
 {summary, "The py_interface is a Python-implementation of an Erlang node."}.
-{author, "Tomas Abrahamsson", "tab@lysator.liu.se", "2004-jul-13"}.
+{author, "Tomas Abrahamsson", "tab@lysator.liu.se", "2006-jun-08"}.
 {keywords, ["Python", "node"]}.
 {needs, []}.
 {abstract,"The py_interface provides the possibility to run a python node
