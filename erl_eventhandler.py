@@ -329,7 +329,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             self.timerEvents.sort()
             return newTimerEvent.id
         elif self.state == self.STATE_TK:
-            return _GetTk().createtimerhandler(round(timeLeft * 1000), cb)
+            return _GetTk().createtimerhandler(int(round(timeLeft * 1000)), cb)
 
     def DelTimerEvent(self, id):
         """Unregister a timer callback.
