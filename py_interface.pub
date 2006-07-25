@@ -2,7 +2,7 @@
 {name, "py_interface"}.
 {vsn, {0,93}}.
 {summary, "The py_interface is a Python-implementation of an Erlang node."}.
-{author, "Tomas Abrahamsson", "tab@lysator.liu.se", "2006-jun-08"}.
+{author, "Tomas Abrahamsson", "tab@lysator.liu.se", "2006-jul-25"}.
 {keywords, ["Python", "node"]}.
 {needs, []}.
 {abstract,"The py_interface provides the possibility to run a python node
