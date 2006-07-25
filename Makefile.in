@@ -60,13 +60,13 @@ SHELL = /bin/sh
 %.beam:	%.erl
 	$(ERLC) $*.erl
 
+all: $(OBJECTS)
+
 __init__.py: __init__.py.src
 	version=`$(grep) vsn py_interface.pub | \
 		 $(sed) 's/^.*\([0-9][0-9]*\),\([0-9][0-9]*\).*$$/\1.\2/'`;\
 	$(sed) -e "s/@VSN@/$$version/g" <__init__.py.src >__init__.py
 
-
-all: $(OBJECTS)
 
 
 install: all installdirs
