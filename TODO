@@ -1,5 +1,5 @@
-Cookies: ~/.erlang.cookie: första raden (whitespace-trimmad)
+Cookies: Make it read the first line of ~/.erlang.cookie, trim whitespace
 
-Nodnamn: kolla vilket vi bör lägga på: @xanadu.nollberga
-         eller bara @xanadu
-Nodnamn: ej längre än 255 tecken
+Nodename: Check whether we should use long or short node name
+          e.g. @host.domain.com or just @host
+Nodename: must not exceed 255 characters!
