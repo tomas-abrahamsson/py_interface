@@ -104,7 +104,7 @@ class ErlAsyncPeerConnection:
     def _QueuedWrite(self):
         numBytesToSend = len(self._pendingOutput)
         try:
-            numBytesSent = self._connection.send(erlStr)
+            numBytesSent = self._connection.send(self._pendingOutput)
             if numBytesSent == numBytesToSend:
                 self._pendingOutput = ""
                 self.evhandler.PopWriteEvent(self._connection)
