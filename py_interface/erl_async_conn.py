@@ -29,6 +29,7 @@ try:
     import SOCKET
 except ImportError:
     SOCKET = socket
+import errno
 
 from py_interface import erl_common
 from py_interface import erl_eventhandler
@@ -91,7 +92,7 @@ class ErlAsyncPeerConnection:
                 remaining = data[numBytesSent:]
                 self._Queue(remaining)
         except socket.error, (errNum, errText):
-            if errNum == 11:
+            if errNum == errno.EAGAIN:
                 self._Queue(data)
             else:
                 raise
@@ -111,7 +112,7 @@ class ErlAsyncPeerConnection:
             else:
                 self._pendingOutput = self._pendingOutput[numBytesSent:]
         except socket.error, (errNum, errText):
-            if errNum == 11:
+            if errNum == errno.EAGAIN:
                 # still not possible to send...
                 # wait a bit more
                 pass
