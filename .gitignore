@@ -13,3 +13,5 @@ PKG-INFO
 config.log
 py_interface-*.tar.gz
 py_interface-*.tgz
+examples/test_erl_node_pingpong.log-py
+/build
