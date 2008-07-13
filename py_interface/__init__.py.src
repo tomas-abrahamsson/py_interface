@@ -12,5 +12,3 @@ __all__ = [
     "erl_opts",
     "erl_term"
     ]
-
-[__import__(item) for item in __all__]
