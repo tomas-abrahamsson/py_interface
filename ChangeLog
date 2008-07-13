@@ -1,4 +1,4 @@
-version 0.94, 2008-Jul-10
+version 0.94, 2008-Jul-13
 	Applied patches from David King:
 	* The code now resides in its own namespace: py_interface
 	* Now supports packaging as an easy_install egg
