@@ -7,3 +7,4 @@ config.status
 configure
 Makefile
 __init__.py
+*~
