@@ -30,8 +30,8 @@ try:
 except ImportError:
     SOCKET = socket
 
-import erl_common
-import erl_eventhandler
+from py_interface import erl_common
+from py_interface import erl_eventhandler
 
 
 class ErlAsyncPeerConnection:

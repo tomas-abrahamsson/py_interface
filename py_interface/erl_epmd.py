@@ -31,9 +31,9 @@ import string
 import socket
 import getopt
 
-import erl_common
-import erl_async_conn
-import erl_eventhandler
+from py_interface import erl_common
+from py_interface import erl_async_conn
+from py_interface import erl_eventhandler
 
 NODETYPE_NORMAL = 77
 NODETYPE_HIDDEN = 72

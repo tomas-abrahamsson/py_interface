@@ -37,10 +37,12 @@ import sys
 import string
 import select
 import time
-from Tkinter import tkinter
-import Tkinter
+try:
+    from Tkinter import tkinter
+    import Tkinter
+except: pass
 
-import erl_common
+from py_interface import erl_common
 
 _evhandler = None
 

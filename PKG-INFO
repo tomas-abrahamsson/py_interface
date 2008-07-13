@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: py_interface
+Version: 0.93
+Summary: A python-implementation of an Erlang node
+Home-page: http://www.lysator.liu.se/~tab/erlang/py_interface/
+Author: Tomas Abrahamsson
+Author-email: tab@lysator.liu.se
+License: GNU Library General Public License
+Description: UNKNOWN
+Platform: UNKNOWN

@@ -33,11 +33,11 @@ import random
 import md5
 
 
-import erl_opts
-import erl_term
-import erl_common
-import erl_async_conn
-import erl_eventhandler
+from py_interface import erl_opts
+from py_interface import erl_term
+from py_interface import erl_common
+from py_interface import erl_async_conn
+from py_interface import erl_eventhandler
 
 M = "erl_node_conn"
 

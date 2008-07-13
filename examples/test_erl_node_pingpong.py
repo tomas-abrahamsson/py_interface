@@ -16,11 +16,11 @@ import socket
 import getopt
 
 
-import erl_term
-import erl_node
-import erl_opts
-import erl_common
-import erl_eventhandler
+from py_interface import erl_term
+from py_interface import erl_node
+from py_interface import erl_opts
+from py_interface import erl_common
+from py_interface import erl_eventhandler
 
 
 mb = None

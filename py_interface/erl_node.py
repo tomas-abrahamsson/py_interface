@@ -29,12 +29,12 @@ import types
 import string
 
 
-import erl_epmd
-import erl_term
-import erl_opts
-import erl_common
-import erl_node_conn
-import erl_eventhandler
+from py_interface import erl_epmd
+from py_interface import erl_term
+from py_interface import erl_opts
+from py_interface import erl_common
+from py_interface import erl_node_conn
+from py_interface import erl_eventhandler
 
 
 

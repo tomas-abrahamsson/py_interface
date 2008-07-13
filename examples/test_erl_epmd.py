@@ -6,10 +6,10 @@ import string
 import socket
 import getopt
 
-import erl_epmd
-import erl_common
-import erl_async_conn
-import erl_eventhandler
+from py_interface import erl_epmd
+from py_interface import erl_common
+from py_interface import erl_async_conn
+from py_interface import erl_eventhandler
 
 e = None
 

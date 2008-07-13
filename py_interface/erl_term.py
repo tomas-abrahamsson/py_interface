@@ -50,7 +50,7 @@ import types
 import string
 
 
-import erl_common
+from py_interface import erl_common
 
 def ErlNumber(number):
     return number
