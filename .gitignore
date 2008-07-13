@@ -10,3 +10,6 @@ __init__.py
 *~
 setup.py
 PKG-INFO
+config.log
+py_interface-*.tar.gz
+py_interface-*.tgz
