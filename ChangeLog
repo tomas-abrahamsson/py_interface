@@ -1,0 +1,27 @@
+version 0.94, 2008-Jul-10
+	Applied patches from David King:
+	* The code now resides in its own namespace: py_interface
+	* Now supports packaging as an easy_install egg
+
+version 0.93, 2006-Jul-25
+        * Updated to work with Erlang R10 and R11 (15-->28 bits in pids
+	  and ports).
+        * Now also works with threaded Tcl (as with Debian) as well.
+        * Also fixed a deprecation issue: integer vs floating-point
+	  timeout values in erl_event_handler.py.
+        * Also added an installation support (the __init__.py file), based
+	  on information by Ed Blake.
+
+version 0.92, 2004-Jul-13
+	* Several bugfixes in packing/unpacking of erlang terms. A lot of
+	  thanks to Jimmy Olgeni and Nigel Head for patches. See the file
+	  erl_term.py, in the tar file, for details.
+	
+version 0.91, 2002-Jul-21
+	* Added autoconf stuff.
+	* This version is/was also on the Erlang User contribution page 
+	
+version 0.9, 2002-May-29
+	* First version
+
+	

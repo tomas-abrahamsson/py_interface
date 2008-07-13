@@ -8,3 +8,5 @@ configure
 Makefile
 __init__.py
 *~
+setup.py
+PKG-INFO

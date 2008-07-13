@@ -13,8 +13,8 @@ INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
 
 # Various auxiliary programs
+cat=cat
 tar=tar
-grep=grep
 sed=sed
 rm=rm
 ln=ln
@@ -25,29 +25,30 @@ srcdir = @srcdir@
 VPATH = @srcdir@
 ERLC = @ERLC@
 
-SOURCES = erl_node.py \
-          erl_node_conn.py \
-          erl_async_conn.py \
-          erl_opts.py \
-          erl_common.py \
-          erl_epmd.py \
-          erl_eventhandler.py \
-          erl_term.py
+SOURCES = py_interface/erl_node.py \
+          py_interface/erl_node_conn.py \
+          py_interface/erl_async_conn.py \
+          py_interface/erl_opts.py \
+          py_interface/erl_common.py \
+          py_interface/erl_epmd.py \
+          py_interface/erl_eventhandler.py \
+          py_interface/erl_term.py
 
-TESTPROGRAMS = test_erl_epmd.py \
-               test_erl_node.py \
-               test_erl_node_conn.py \
-               test_erl_node_tk_1.py \
-               test_erl_node_pingpong.py \
-               test_erl_node_pingpong.erl \
-               run_test_erl_node_pingpong.sh
+TESTPROGRAMS = examples/test_erl_epmd.py \
+               examples/test_erl_node.py \
+               examples/test_erl_node_conn.py \
+               examples/test_erl_node_tk_1.py \
+               examples/test_erl_node_pingpong.py \
+               examples/test_erl_node_pingpong.erl \
+               examples/run_test_erl_node_pingpong.sh
 
-OBJECTS = test_erl_node_pingpong.beam
+OBJECTS = examples/test_erl_node_pingpong.beam
 
 
 DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
-	__init__.py \
-        py_interface.pub \
+	py_interface/__init__.py \
+	vsn \
+	PKG-INFO setup.py \
         Makefile.in configure configure.in \
         mkinstalldirs install-sh
 
@@ -57,16 +58,24 @@ SHELL = /bin/sh
 #	installdirs ps uninstall
 .SUFFIXES: .beam .erl .py
 
-%.beam:	%.erl
-	$(ERLC) $*.erl
+examples/%.beam:	examples/%.erl
+	$(ERLC) -o examples examples/$*.erl
 
-all: $(OBJECTS)
+all: $(OBJECTS) py_interface/__init__.py setup.py
 
-__init__.py: __init__.py.src
-	version=`$(grep) vsn py_interface.pub | \
-		 $(sed) 's/^.*\([0-9][0-9]*\),\([0-9][0-9]*\).*$$/\1.\2/'`;\
-	$(sed) -e "s/@VSN@/$$version/g" <__init__.py.src >__init__.py
+py_interface/__init__.py: py_interface/__init__.py.src
+	version=`$(cat) vsn`; \
+	$(sed) -e "s/@VSN@/$$version/g" \
+	< py_interface/__init__.py.src \
+	> py_interface/__init__.py
 
+setup.py: setup.py.src
+	version=`$(cat) vsn`; \
+	$(sed) -e "s/@VSN@/$$version/g" > setup.py < setup.py.src
+
+PKG-INFO: PKG-INFO.src
+	version=`$(cat) vsn`; \
+	$(sed) -e "s/@VSN@/$$version/g" > PKG-INFO < PKG-INFO.src
 
 
 install: all installdirs
@@ -108,14 +117,15 @@ config.status: ${srcdir}/configure
 
 
 dist: $(DISTFILES)
-	version=`$(grep) vsn py_interface.pub | \
-		 $(sed) 's/^.*\([0-9][0-9]*\),\([0-9][0-9]*\).*$$/\1.\2/'`;\
+	version=`$(cat) vsn`; \
 	distname=py_interface-$$version; \
 	$(rm) -rf $$distname; \
 	$(mkdir) $$distname; \
 	for file in $(DISTFILES); do \
+	  d="`dirname $$file`"; \
+	  [ -d "$$distname/$$d" ] || mkdir -p "$$distname/$$d"; \
 	  $(ln) $$file $$distname/$$file; \
 	done; \
 	$(tar) -chz -f $$distname.tar.gz $$distname; \
-	$(tar) -chz -f $$distname.tgz $$distname; \
+	/bin/rm -f  $$distname.tgz; ln $$distname.tar.gz $$distname.tgz; \
 	$(rm) -rf $$distname
