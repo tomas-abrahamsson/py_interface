@@ -20,6 +20,7 @@ rm=rm
 ln=ln
 mkdir=mkdir
 tar=tar
+chmod=chmod
 
 srcdir = @srcdir@
 VPATH = @srcdir@
@@ -71,7 +72,8 @@ py_interface/__init__.py: py_interface/__init__.py.src
 
 setup.py: setup.py.src
 	version=`$(cat) vsn`; \
-	$(sed) -e "s/@VSN@/$$version/g" > setup.py < setup.py.src
+	$(sed) -e "s/@VSN@/$$version/g" > setup.py < setup.py.src && \
+	$(chmod) +x setup.py
 
 PKG-INFO: PKG-INFO.src
 	version=`$(cat) vsn`; \
