@@ -1,3 +1,8 @@
+version 0.95, 2008-Jul-15
+	Applied patch from David King:
+	* The socket connections now also checks for EWOULDBLOCK, not only
+	  EAGAIN.
+	
 version 0.94, 2008-Jul-13
 	Applied patches from David King:
 	* The code now resides in its own namespace: py_interface

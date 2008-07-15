@@ -92,7 +92,7 @@ class ErlAsyncPeerConnection:
                 remaining = data[numBytesSent:]
                 self._Queue(remaining)
         except socket.error, (errNum, errText):
-            if errNum == errno.EAGAIN:
+            if errNum == errno.EAGAIN or errNum == errno.EWOULDBLOCK:
                 self._Queue(data)
             else:
                 raise
@@ -112,7 +112,7 @@ class ErlAsyncPeerConnection:
             else:
                 self._pendingOutput = self._pendingOutput[numBytesSent:]
         except socket.error, (errNum, errText):
-            if errNum == errno.EAGAIN:
+            if errNum == errno.EAGAIN or errNum == errno.EWOULDBLOCK:
                 # still not possible to send...
                 # wait a bit more
                 pass
