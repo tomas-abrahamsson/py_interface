@@ -1,0 +1,24 @@
+#! /bin/sh -xv
+#  1. Edit <code>
+#  2. Edit the file vsn
+#  3. Edit the file ChangeLog
+#  4. Test:
+   autoconf && \
+   ./configure && \
+   make clean && \
+   make && \
+   ./setup.py build && \
+   make dist &&
+   (  export vsn=`cat vsn` && \
+      /bin/rm -rf tt && \
+      mkdir tt && cd tt && \
+      tar xfvpz ../py_interface-$vsn.tgz && \
+      cd py_interface-$vsn && \
+      ./configure && \
+      make && \
+      ./setup.py build ) && \
+   /bin/rm -rf tt &&
+   echo "Success!"
+#  5. Commit
+#  6. Tag
+#  7. Push

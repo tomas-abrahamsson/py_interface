@@ -1,3 +1,19 @@
+version 0.96, 2008-Dec-17
+	Applied two patches from Anton Krasovsky:
+	* The first fixes a crash when the connection from python to
+	  erlang node is terminated, because the erlang node has gone down
+	  or stopped replying to pings
+	* The second fixes a crash when a connection between python node
+	  and the erlang node has been broken due to lack of ping
+	  responses from the erlang node (erlang process was suspended),
+	  and then when erlang process is resumed and terminated,
+	  exception was thrown.
+
+	Fixed a few cases of the version number not getting properly
+	inserted into all files, and one bug related to buildning: now all
+	files needed to build gets properly included in the distribution
+	tar file.
+	
 version 0.95, 2008-Jul-15
 	Applied patch from David King:
 	* The socket connections now also checks for EWOULDBLOCK, not only
