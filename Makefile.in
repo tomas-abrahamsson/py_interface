@@ -47,9 +47,9 @@ OBJECTS = examples/test_erl_node_pingpong.beam
 
 
 DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
-	py_interface/__init__.py \
+	py_interface/__init__.py py_interface/__init__.py.src \
 	vsn \
-	PKG-INFO setup.py \
+	PKG-INFO PKG-INFO.src setup.py setup.py.src \
         Makefile.in configure configure.in \
         mkinstalldirs install-sh
 
