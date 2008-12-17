@@ -290,12 +290,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             self.Close()
             if self._state != self._STATE_CONNECTED:
                 self._state = self._STATE_DISCONNECTED
-                self._connectFailedCb(self, self.GetPeerNodeName())
+                self._connectFailedCb()
             else:
                 self._state = self._STATE_DISCONNECTED
                 if self._tickTimers != None:
                     self._tickTimers.Stop()
-                self._connectionBrokenCb(self, "")
+                self._connectionBrokenCb()
             return
 
         self._recvdata = self._recvdata + newData
@@ -419,7 +419,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         erl_common.Debug(M, "InConnection: Connection broken")
         self._state = self._STATE_DISCONNECTED
         self._tickTimers.Stop()
-        self._connectionBrokenCb(self, self.GetPeerNodeName())
+        self._connectionBrokenCb()
         
 
     def _SendName(self):
