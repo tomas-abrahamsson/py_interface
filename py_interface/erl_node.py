@@ -768,10 +768,11 @@ class ErlNode:
     def _PingFailed(self, connection, remoteNodeName):
         """This internal routine signals that the ping of another node
         failed."""
-        callbacks = self._ongoingPings[remoteNodeName]
-        del self._ongoingPings[remoteNodeName]
-        for cb in callbacks:
-            cb("pang")
+        if self._ongoingPings.has_key(remoteNodeName):
+            callbacks = self._ongoingPings[remoteNodeName]
+            del self._ongoingPings[remoteNodeName]
+            for cb in callbacks:
+                cb("pang")
         
 
     def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
