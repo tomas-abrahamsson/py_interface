@@ -62,7 +62,7 @@ SHELL = /bin/sh
 examples/%.beam:	examples/%.erl
 	$(ERLC) -o examples examples/$*.erl
 
-all: $(OBJECTS) py_interface/__init__.py setup.py
+all: $(OBJECTS) py_interface/__init__.py setup.py PKG-INFO
 
 py_interface/__init__.py: py_interface/__init__.py.src
 	version=`$(cat) vsn`; \
@@ -102,7 +102,7 @@ clean:
 	rm -f TAGS
 	rm -f erl_crash.dump
 	rm -f *.beam
-	rm -f __init__.py
+	rm -f py_interface/__init__.py setup.py PKG-INFO
 
 distclean: clean
 	-rm -f *~ *.tar.gz
