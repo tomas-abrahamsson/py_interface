@@ -404,8 +404,19 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
                 (reads, writes, excepts) = ([], [], [])
             else:
                 # Select and wait for timer
-                reads, writes, excepts = select.select(rList, wList, eList,
-                                                       timeout)
+                try:
+                    reads, writes, excepts = select.select(rList, wList, eList,
+                                                           timeout)
+                except select.error, info:
+                    (errno, errText) = info
+                    if errno == 4:
+                        # 'Interrupted system call'
+                        # ignore this one.
+                        # loop again in the while loop
+                        continue
+                    else:
+                        # Other error: serious. Raise again.
+                        raise
 
             # Check for handles that are clear for reading
             for readable in reads:
