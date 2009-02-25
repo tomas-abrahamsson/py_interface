@@ -84,8 +84,8 @@ class ErlMBox:
         """Send, to DEST, the message MSG.
 
         DEST    = <instance of ErlPid> | string | <instance of ErlAtom> |
-                  tuple(NODE, PROC-NAME)
-                  NODE = PROC-NAME = string | <instance of ErlAtom>
+                  tuple(PROC-NAME, NODE)
+                  PROC-NAME = NODE = string | <instance of ErlAtom>
                 The destination to which the message is to be sent.
                 This can is either a pid for an mbox (on the same node or on a
                 different node), or a registered name (as string or atom) on
@@ -600,8 +600,8 @@ class ErlNode:
         DEST        = <instance of ErlPid> |
                       string |
                       <instance of ErlAtom> |
-                      tuple(DEST-NODE, DEST-REGNAME)
-                      DEST-NODE = DEST-REGNAME = string | <instance of ErlAtom>
+                      tuple(DEST-REGNAME, DEST-NODE)
+                      DEST-REGNAME = DEST-NODE = string | <instance of ErlAtom>
         MSG         = <term>
         Returns: void
         THrows:  <<to-be-documented>>

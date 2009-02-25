@@ -1,6 +1,10 @@
-version 0.97p1, 2009-Feb-14
+version 0.97p2, 2009-Feb-25
 	* py_interface/erl_eventhandler.py: handles interrupted system
 	call exceptions also in the timeout case.
+	* py_interface/erl_node.py: doc string fix for methods
+	ErlMBox.Send and ErlNode.SendMsgFromMBox: the order of the process
+	name and node name had gotten mixed up. Noted by Paul TBBle
+	Hampson.
 	
 version 0.96, 2008-Dec-17
 	Applied two patches from Anton Krasovsky:
