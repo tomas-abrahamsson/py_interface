@@ -30,7 +30,11 @@ import types
 import string
 import socket
 import random
-import md5
+try:
+  from hashlib import md5
+except ImportError:
+  # Pre-Python2.5 library for md5
+  from md5 import new as md5
 
 
 from py_interface import erl_opts
@@ -64,7 +68,7 @@ def GenDigest(challenge, cookie):
     challengeStr = str(challenge)
     if challengeStr[-1] == 'L':
         challengeStr = challengeStr[:-1]
-    return md5.new(cookie + challengeStr).digest()
+    return md5(cookie + challengeStr).digest()
 
 def GenChallenge():
     """Generates a challenge.
