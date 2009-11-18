@@ -1,3 +1,7 @@
+version 0.98, 2009-Nov-18
+	* py_interface/erl_term.py: Bugfixes for handling of negative
+	integers. Reported by bird devdoer <devdoer@gmail.com>.
+
 version 0.97, 2009-Jul-27
 	* py_interface/erl_eventhandler.py: handles interrupted system
 	call exceptions also in the timeout case.
@@ -8,7 +12,7 @@ version 0.97, 2009-Jul-27
 	* py_interface/erl_node_conn.py: Python 2.6 compatibility patch by
 	David Reiss <dreiss@facebook.com> applied: uses md5 from hashlib
 	if that one is available.
-	
+
 version 0.96, 2008-Dec-17
 	Applied two patches from Anton Krasovsky:
 	* The first fixes a crash when the connection from python to
@@ -24,12 +28,12 @@ version 0.96, 2008-Dec-17
 	inserted into all files, and one bug related to buildning: now all
 	files needed to build gets properly included in the distribution
 	tar file.
-	
+
 version 0.95, 2008-Jul-15
 	Applied patch from David King:
 	* The socket connections now also checks for EWOULDBLOCK, not only
 	  EAGAIN.
-	
+
 version 0.94, 2008-Jul-13
 	Applied patches from David King:
 	* The code now resides in its own namespace: py_interface
@@ -49,12 +53,10 @@ version 0.92, 2004-Jul-13
 	* Several bugfixes in packing/unpacking of erlang terms. A lot of
 	  thanks to Jimmy Olgeni and Nigel Head for patches. See the file
 	  erl_term.py, in the tar file, for details.
-	
+
 version 0.91, 2002-Jul-21
 	* Added autoconf stuff.
 	* This version is/was also on the Erlang User contribution page 
-	
+
 version 0.9, 2002-May-29
 	* First version
-
-	
