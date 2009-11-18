@@ -13,7 +13,7 @@
 
 start() ->
     start(['py_interface_test@localhost']).
-    
+
 start([OtherNode]) ->
     Term = {self(), [1,		% small_integer_ext
 		     255,	% small_integer_ext
@@ -35,7 +35,7 @@ start([OtherNode]) ->
 		     <<"abc">>,	% binary_ext
 		     2 bsl 33,	% small_big_ext
 		     fixme,	% fixme: flag stuff needed to get funs to work
-		     '$end$'
+		     ' $end$ '
 		    ]
 	   },
     LargeTerm = {self(),
@@ -45,10 +45,10 @@ start([OtherNode]) ->
 		  2 bsl (256*8),
 		  %% string_ext
 		  lists:duplicate(3000, $a),
-		  '$endlarge$'
+		  ' $endlarge$ '
 		 ]},
-    
-		    
+
+
     io:format("Sending message...~n"),
     {p, OtherNode} ! Term,
     io:format("Sending message...done~n"),
