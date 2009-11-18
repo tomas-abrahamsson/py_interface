@@ -327,7 +327,7 @@ def _UnpackOneTerm(data):
         return (ErlNumber(n), data[2:])
 
     elif data0 == MAGIC_INTEGER:
-        n = _ReadInt4(data[1:5])
+        n = _ReadSignedInt4(data[1:5])
         return (ErlNumber(n), data[5:])
 
     elif data0 == MAGIC_FLOAT:
@@ -491,8 +491,13 @@ def _ReadInt2(s):
 def _ReadInt4(s):
     return erl_common.ReadInt4(s)
 
-
-
+def _ReadSignedInt4(s):
+    n = erl_common.ReadInt4(s)
+    if n <= 0x7fffffff:
+        return n
+    else:
+        return -(0x100000000-n)
+        
 ###
 ### PACKING
 ###
@@ -570,7 +575,7 @@ def _PackLong(term):
     if -long(0x7fffffff) - 1 <= term <= long(0x7fffffff):
         return _PackInt(term)
     else:
-        numBytesNeeded = int(math.log(term) / math.log(256)) + 1
+        numBytesNeeded = int(math.log(abs(term)) / math.log(256)) + 1
         if numBytesNeeded > 255:
             return _PackInt1(MAGIC_LARGE_BIG) + \
                    _PackInt4(numBytesNeeded) + \
@@ -585,7 +590,7 @@ def _PackLongBytes(term, numBytesNeeded):
         sign = _PackInt1(1)
     else:
         sign = _PackInt1(0)
-    bignum = term
+    bignum = abs(term)
     bignumBytes = sign
     for i in range(numBytesNeeded):
         bignumBytes = bignumBytes + _PackInt1(bignum & 255)
