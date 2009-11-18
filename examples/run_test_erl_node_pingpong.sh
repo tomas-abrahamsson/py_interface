@@ -11,7 +11,8 @@
 erl -noinput -detach -sname ensure_epmd_started@localhost -s erlang halt
 
 # Now start the pythonnode
-./test_erl_node_pingpong.py -n py_interface_test@localhost -c cookie \
+PYTHONPATH=..:$PYTHONPATH ./test_erl_node_pingpong.py \
+    -n py_interface_test@localhost -c cookie \
 	 > test_erl_node_pingpong.log-py 2>&1 &
 pynode=$!
 
