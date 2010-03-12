@@ -279,7 +279,7 @@ def DebugHex(module, txt, msg):
     The debug message is printed to stdout, except if debugging has
     been set to go to a file, see DebugToFile.
     """
-    hexMsg = HexDumpFormat(msg)
+    hexMsg = _HexDumpFormat(msg)
     _DebugEmitText("%s: %s\n%s" % (module, txt, hexMsg))
 
 def _DebugEmitText(txt):
