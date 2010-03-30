@@ -1,3 +1,7 @@
+version 0.99, 2010-Mar-13
+	* py_interface/erl_common.py: Bugfix of call to _HexDumpFormat in
+	DebugHex. Reported by Paul "TBBle" Hampson.
+
 version 0.98, 2009-Nov-18
 	* py_interface/erl_term.py: Bugfixes for handling of negative
 	integers. Reported by bird devdoer <devdoer@gmail.com>.
