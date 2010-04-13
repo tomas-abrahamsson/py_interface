@@ -1,3 +1,9 @@
+version 1.0, 2010-Apr-13
+	* py_interface/erl_epmd.py: Erlang/OTP epmd R13B04 compatibility
+	patch by Paul "TBBle" Hampson applied: R13B04 fixed a bug in the
+	epmd's handling of the `extra' field. This patch makes
+	py_interface work with the bug-fixed epmd.
+
 version 0.99, 2010-Mar-13
 	* py_interface/erl_common.py: Bugfix of call to _HexDumpFormat in
 	DebugHex. Reported by Paul "TBBle" Hampson.
