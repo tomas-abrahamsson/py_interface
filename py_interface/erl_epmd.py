@@ -394,7 +394,10 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
                 extra = ""
             else:
                 eLen = self.ReadInt2(resp[12 + nLen:12 + nLen + 2])
-                extra = self.ReadInt2(resp[12 + nLen + 2:])
+                if eLen == 2:
+                    extra = self.ReadInt2(resp[12 + nLen + 2:])
+                else:
+                    extra = ""
             cb(res, portNum, nodeType, protocol, distrVSNRng, nodeName, extra)
 
     def _UnpackNamesResp(self, resp, cb):
