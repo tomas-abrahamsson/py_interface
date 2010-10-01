@@ -7,8 +7,10 @@
 # if the received message matches the original message.
 #
 
+erl=${ERL:-erl}
+
 # First make sure epmd is up and running. (needed by the python-node)
-erl -noinput -detach -sname ensure_epmd_started@localhost -s erlang halt
+$erl -noinput -detach -sname ensure_epmd_started@localhost -s erlang halt
 
 # Now start the pythonnode
 PYTHONPATH=..:$PYTHONPATH ./test_erl_node_pingpong.py \
@@ -16,7 +18,7 @@ PYTHONPATH=..:$PYTHONPATH ./test_erl_node_pingpong.py \
 	 > test_erl_node_pingpong.log-py 2>&1 &
 pynode=$!
 
-erl -noinput -sname enode1@localhost \
+$erl -noinput -sname enode1@localhost \
     -setcookie cookie \
     -s test_erl_node_pingpong start \
     -s erlang halt
