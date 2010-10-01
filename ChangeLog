@@ -1,3 +1,13 @@
+version ...
+
+	* examples/run_test_erl_node_pingpong.sh: possibility to
+	parameterize what erl command to use for easier testing of
+	different version.
+
+	* examples/run_remote_exec_wrapper.sh,
+	examples/test_remote_exec.py: Implemented after a discussion
+	with HP Wei.
+
 version 1.0, 2010-Apr-13
 	* py_interface/erl_epmd.py: Erlang/OTP epmd R13B04 compatibility
 	patch by Paul "TBBle" Hampson applied: R13B04 fixed a bug in the
