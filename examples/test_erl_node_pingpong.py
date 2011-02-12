@@ -22,26 +22,28 @@ from py_interface import erl_opts
 from py_interface import erl_common
 from py_interface import erl_eventhandler
 
-
 mb = None
+quiet = False
 
 def __TestMBoxCallback(msg, *k, **kw):
-    global mb
-    print "Incoming msg=%s (k=%s, kw=%s)" % (`msg`, `k`, `kw`)
+    global mb, quiet
+    if not quiet:
+        print "Incoming msg=%s (k=%s, kw=%s)" % (`msg`, `k`, `kw`)
     if type(msg) == types.TupleType:
         if len(msg) == 2:
             if erl_term.IsErlPid(msg[0]):
                 dest = msg[0]
-                print "Sending it back to %s" % (dest,)
+                if not quiet:
+                    print "Sending it back to %s" % (dest,)
                 mb.Send(dest, msg)
                 
 
 
 def main(argv):
-    global mb
+    global mb, quiet
     
     try:
-        opts, args = getopt.getopt(argv[1:], "?dn:c:")
+        opts, args = getopt.getopt(argv[1:], "?dn:c:q")
     except getopt.error, info:
         print info
         sys.exit(1)
@@ -59,6 +61,8 @@ def main(argv):
             cookie = optarg
         elif optchar == "-d":
             doDebug = 1
+        elif optchar == "-q":
+            quiet = 1
         elif optchar == "-n":
             ownNodeName = optarg
 
