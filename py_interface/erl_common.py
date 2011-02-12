@@ -312,7 +312,7 @@ def _HexDumpFormat(string):
         numFill = 16 - len(s)
         hexString = hexString + "   " * numFill
         addrString = "%04x" % addr
-        return addrString + ": " + hexString + "   " + ascString
+        return addrString + ": " + hexString + "   " + ascString + "\n"
 
     remaining_chars = string;
     addr = 0
