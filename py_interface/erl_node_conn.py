@@ -684,7 +684,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             ownCookie = self._opts.GetCookie()
             if CheckDigest(peersDigest, self._challengeToPeer, ownCookie):
                 self._SendChallengeAck(peersChallenge)
-                self._packetLenSIze = 4
+                self._packetLenSize = 4
                 self._state = self._STATE_CONNECTED
                 t = self._opts.GetNetTickTime()
                 self._tickTimers = Ticker(t, self._Tick, self._NoResponse)
