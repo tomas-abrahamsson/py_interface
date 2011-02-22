@@ -1,9 +1,9 @@
-version ...
+version 1.1, 2010-Feb-22
 
-	* py_interface/erl_node_conn.py: Bugfix: now handles packets
-	larger than 64kbytes.
+	* py_interface/erl_node_conn.py: Bugfix: now handles incoming
+	packets larger than 64kbytes.
 	* examples/run_test_erl_node_pingpong_qc.sh,
-	examples/test_erl_node_pingpong_qc.erl: quickcheck test of
+	examples/test_erl_node_pingpong_qc.erl: QuickCheck test of
 	pingpong sending of data.
 	* examples/run_test_erl_node_pingpong.sh: possibility to
 	parameterize what erl command to use for easier testing of
