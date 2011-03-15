@@ -41,7 +41,12 @@ TESTPROGRAMS = examples/test_erl_epmd.py \
                examples/test_erl_node_tk_1.py \
                examples/test_erl_node_pingpong.py \
                examples/test_erl_node_pingpong.erl \
-               examples/run_test_erl_node_pingpong.sh
+               examples/run_test_erl_node_pingpong.sh \
+               examples/run_remote_exec_wrapper.sh \
+               examples/test_remote_exec.py \
+               examples/run_test_erl_node_pingpong_qc.sh \
+               examples/test_erl_node_pingpong_qc.erl
+
 
 OBJECTS = examples/test_erl_node_pingpong.beam
 
@@ -51,7 +56,7 @@ DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
 	vsn \
 	PKG-INFO PKG-INFO.src setup.py setup.py.src \
         Makefile.in configure configure.in \
-        mkinstalldirs install-sh
+        mkinstalldirs install-sh ChangeLog
 
 
 SHELL = /bin/sh
