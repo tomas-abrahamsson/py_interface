@@ -1,3 +1,15 @@
+version 1.1.1, 2010-Mar-15
+
+        * examples/run_remote_exec_wrapper.sh,
+	examples/test_remote_exec.py: Really do include the files that
+	were expected to be new as of version 1.1.
+
+	* examples/run_test_erl_node_pingpong_qc.sh,
+	examples/test_erl_node_pingpong_qc.erl: Really do include the
+	files that were expected to be new as of version 1.1.
+
+	* ChangeLog: include this file in the tar ball
+
 version 1.1, 2010-Feb-22
 
 	* py_interface/erl_node_conn.py: Bugfix: now handles incoming
