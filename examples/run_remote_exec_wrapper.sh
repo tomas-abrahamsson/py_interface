@@ -40,7 +40,7 @@ done
 echo
 echo "Waiting the backgrounded node to register to the epmd...$registered"
 
-trap "/bin/kill $erlnode 2>/dev/null; exit" 0
+trap "/bin/kill $erlnode 2>/dev/null || true; exit" 0
 
 echo
 echo "Will now ask the remote erlang-node to print something."
