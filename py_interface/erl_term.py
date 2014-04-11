@@ -48,7 +48,8 @@ import sys
 import math
 import types
 import string
-
+import pickle
+import UserDict
 
 from py_interface import erl_common
 
@@ -271,6 +272,131 @@ class ErlFun:
 def IsErlFun(term):
     """Checks whether a term is an Erlang function or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlFun)
+
+
+## About the Erlang map type vs Python Dict:
+##
+## In Python, it is not possible to have a list as an dict key,
+## because it is mutable (it is unhashable: does not have __hash__),
+## but Erlang lists are translated to Python lists (if proper),
+## and in Erlang, it is possible to have any type as a Map key --
+## even a(nother) Map can act as key -- and may well occur as Map keys
+## (also, strings are lists, and even while they will often get
+## encoded as string types, this might not be guaranteed, if they
+## contain odd chars or integer values)
+##
+## So we make a dictionary imitation, which can have lists and
+## atoms and whatnot among the Erlang types as keys.
+##
+## So we wrap unhashable terms as ErlMapKey instances, and
+## hash a serialized form of the term. This also mimics key immutability.
+##
+##
+## We go for pickle rather than cPickle, because it appears that
+## pickle.dumps(pickle.loads(pickle.dumps(term))) == pickle.dumps(term)
+## which is a desirable property for keys, but does not hold for cPickle.
+
+def MakeErlMapKey(term):
+    try:
+        hash(term)
+        return term
+    except TypeError, x:
+        return ErlMapKey(term)
+
+def UnmakeErlMapKey(k):
+    if IsErlMapKey(k):
+        return k.GetElem()
+    else:
+        return k
+
+class ErlMapKey:
+    def __init__(self, elem):
+        marker = '$$$$dummy'
+        self.h = hash((marker, type(elem), pickle.dumps(elem)))
+        self.e = elem
+    def __hash__(self):
+        return self.h
+    def __eq__(self, other):
+        if IsErlMapKey(other):
+            return self.e == other.e
+        else:
+            return False
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __repr__(self):
+        return repr(self.e)
+    def GetElem(self):
+        return self.e
+
+def IsErlMapKey(x):
+    return type(x) == types.InstanceType and isinstance(x, ErlMapKey)
+
+class ErlMap(UserDict.DictMixin):
+    def __init__(self, dict=None, **kwargs):
+        # fixme: handle extra and kv
+        self.d = {}
+        if dict != None:
+            self.update(dict)
+        if len(kwargs):
+            self.update(kwargs)
+    def __getitem__(self, key):
+        return self.d[MakeErlMapKey(key)]
+    def __setitem__(self, key, value):
+        self.d[MakeErlMapKey(key)] = value
+    def __delitem__(self, key):
+        del self.d[MakeErlMapKey(key)]
+    def keys(self):
+        return [UnmakeErlMapKey(x) for x in self.d.keys()]
+    def __eq__(self, other):
+        if IsErlMap(other):
+            ks1 = self.d.keys()
+            ks2 = other.d.keys()
+            if len(ks1) != len(ks2):
+                return False
+            for k in ks1:
+                if k not in ks2:
+                    return False
+                if self.d[k] != other.d[k]:
+                    return False
+            return True
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __cmp__(self, other):
+        # UserDict.DictMixin defines a __cmp__ which is unusable
+        # to us, because the keys might be lists or other non-hashable objects,
+        # so override __cmp__ with something reasonable.
+        #
+        # return a negative integer if self < other
+        # return a positive integer if self > other
+        if other is None:
+            return 1
+        if IsErlMap(other):
+            ks1 = self.d.keys()
+            ks2 = other.d.keys()
+            if len(ks1) < len(ks2): return -1
+            if len(ks1) > len(ks2): return 1
+            if len(ks1) == len(ks2) == 0: return 0
+            k2min = ks2[0]
+            for k in ks2:
+                if k < k2min: k2min = k
+            for k in ks1:
+                if k not in ks2:
+                    if k < k2min: return -1
+                    else: return 1
+                if self.d[k] < other.d[k]: return -1
+                if self.d[k] > other.d[k]: return 1
+            return 0
+        return 1
+    def __repr__(self):
+        r = "{"
+        for k in self.d:
+            r += repr(k) + ": " + repr(self.d[k])
+        r += "}"
+        return r
+
+def IsErlMap(term):
+    """Checks whether a term is an Erlang function or not."""
+    return type(term) == types.InstanceType and isinstance(term, ErlMap)
 
 ###
 ### MAGIC tags used in packing/unpacking. See erl_ext_dist.txt
