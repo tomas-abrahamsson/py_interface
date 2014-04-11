@@ -75,7 +75,12 @@ class ErlAtom:
     def __repr__(self):
         return "<erl-atom: %s>" % `self.atomText`
     def equals(self, other):
-        return self.atomText == other.atomText
+        return IsErlAtom(other) and self.atomText == other.atomText
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash(("$$atom", self.atomText))
     def __str__(self):
         return self.atomText
 
@@ -98,14 +103,19 @@ class ErlRef:
         return "<erl-ref: node=%s, id=%s, creation=%d>" % \
                (`self.node`, `self.id`, self.creation)
     def equals(self, other):
-        return self.node.equals(other.node) and \
-               self.id == other.id and \
-               self.creation == other.creation
+        return IsErlRef(other) and \
+            self.node.equals(other.node) and \
+            self.id == other.id and \
+            self.creation == other.creation
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash(("$$ref", self.node, self.id, self.creation))
 
 def IsErlRef(term):
     """Checks whether a term is an Erlang reference or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlRef)
-
 
 class ErlPort:
     """An Erlang port. The following attributes are defined:
@@ -121,9 +131,15 @@ class ErlPort:
         return "<erl-port: node=%s, id=%d, creation=%d>" % \
                (`self.node`, self.id, self.creation)
     def equals(self, other):
-        return self.node.equals(other.node) and \
-               self.id == other.id and \
-               self.creation == other.creation
+        return IsErlPort(other) and \
+            self.node.equals(other.node) and \
+            self.id == other.id and \
+            self.creation == other.creation
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash(("$$port", self.node, self.id, self.creation))
 
 def IsErlPort(term):
     """Checks whether a term is an Erlang reference or not."""
@@ -145,10 +161,16 @@ class ErlPid:
         return "<erl-pid: node=%s, id=%d, serial=%d, creation=%d>" % \
                (`self.node`, self.id, self.serial, self.creation)
     def equals(self, other):
-        return self.node.equals(other.node) and \
-               self.id == other.id and \
-               self.serial == other.serial and \
-               self.creation == other.creation
+        return IsErlPid(other) and \
+            self.node.equals(other.node) and \
+            self.id == other.id and \
+            self.serial == other.serial and \
+            self.creation == other.creation
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash(("$$pid", self.node, self.id, self.serial, self.creation))
 
 def IsErlPid(term):
     """Checks whether a term is an Erlang process id or not."""
@@ -174,7 +196,11 @@ class ErlImproperList:
     def __repr__(self):
         return "<erl-improper-list: head=%s, tail=%s>" % (`self.elements`,`self.tail`)
     def equals(self,other):
-        return self.elements==other.elements and self.tail==other.tail
+        return IsErlImproperList(other) and \
+            self.elements==other.elements and self.tail==other.tail
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
     def __getitem__(self,key):
         try:
             return self.elements[key]
@@ -195,7 +221,12 @@ class ErlBinary:
     def __repr__(self):
         return "<erl-binary: size=%d>" % len(self.contents)
     def equals(self, other):
-        return self.contents == other.contents
+        return IsErlBinary(other) and self.contents == other.contents
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash(("$$binary", self.contents))
 
 def IsErlBinary(term):
     """Checks whether a term is an Erlang binary or not."""
@@ -224,12 +255,18 @@ class ErlFun:
                (`self.pid`, `self.module`, self.index, self.uniq,
                 `self.freeVars`)
     def equals(self, other):
-        return self.pid.equals(other.pid) and \
-               self.module.equals(other.module) and \
-               self.index == other.index and \
-               self.uniq == other.uniq and \
-               self.freeVars == other.freeVars
-
+        return IsErlFun(other) and \
+            self.pid.equals(other.pid) and \
+            self.module.equals(other.module) and \
+            self.index == other.index and \
+            self.uniq == other.uniq and \
+            self.freeVars == other.freeVars
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash(("$$fun", hash(self.pid), hash(self.module),
+                     self.index, self.uniq, tuple(self.freeVars)))
 
 def IsErlFun(term):
     """Checks whether a term is an Erlang function or not."""
