@@ -656,7 +656,7 @@ def _PackFun(term):
     freeVars = ""
     for freeVar in term.freeVars:
         freeVars = freeVars + _PackOneTerm(freeVar)
-    return _PackInt4(MAGIC_FUN) + numFreeVars + \
+    return _PackInt1(MAGIC_FUN) + numFreeVars + \
            pid + module + index + uniq + freeVars
 
 
