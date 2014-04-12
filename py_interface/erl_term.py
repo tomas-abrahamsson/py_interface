@@ -452,12 +452,6 @@ def _UnpackOneTerm(data):
         (index, remainingData3)  = _UnpackOneTerm(remainingData2)
         (uniq, remainingData4) = _UnpackOneTerm(remainingData3)
         (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,remainingData4)
-        print "MAGIC_FUN"
-        print pid
-        print module
-        print index
-        print uniq
-        print freeVars
         return (ErlFun(pid, module, index, uniq, freeVars),
                 remainingData5)
 
