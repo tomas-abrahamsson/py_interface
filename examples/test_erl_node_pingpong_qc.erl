@@ -13,6 +13,7 @@
 %%
 -module(test_erl_node_pingpong_qc).
 
+-export([start_halt/0, start_halt/1]).
 -export([start/0, start/1]).
 
 -export([prop_same_term_returns_after_roundtrip/0]).
@@ -24,6 +25,13 @@
 
 -include_lib("eqc/include/eqc.hrl").
 
+start_halt() -> halt_with_status(start()).
+
+start_halt(Args) -> halt_with_status(start(Args)).
+
+halt_with_status(ok)  -> halt(0);
+halt_with_status(Err) -> io:format("ERR=~p~n", [Err]), halt(1).
+
 start() ->
     start(['py_interface_test_qc@localhost']).
 
@@ -33,11 +41,16 @@ start([PyNodeName, PyCmdA]) ->
     case wait_until_node_available(PyNodeName, ?MAX_WAIT_PYNODE_UP) of
         ok ->
             io:format("Running tests...~n"),
-            eqc:module(?MODULE);
+            try eqc:module(?MODULE) of
+                []  -> ok;
+                Err -> {error, Err}
+            catch Class:Reason ->
+                    {error, {Class,Reason,erlang:get_stacktrace()}}
+            end;
         {error, Reason} ->
             io:format("Failed to find the python node ~p~n  ~p~n",
                       [PyNodeName, Reason]),
-            false
+            {error,{connection_failure,Reason}}
     end.
 
 prop_same_term_returns_after_roundtrip() ->

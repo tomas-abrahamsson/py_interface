@@ -6,6 +6,7 @@ config.cache
 config.status
 configure
 Makefile
+!examples/Makefile
 __init__.py
 *~
 setup.py

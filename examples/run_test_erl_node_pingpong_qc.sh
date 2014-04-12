@@ -11,6 +11,7 @@
 #
 
 erl=${ERL:-erl}
+erlc=${ERLC:-erlc}
 eqc_path=${EQC_EBIN_PATH:-}
 
 if [ x"$eqc_path" != x ]
@@ -48,7 +49,7 @@ if [ ! -f test_erl_node_pingpong_qc.beam -o \
     test_erl_node_pingpong_qc.erl -nt test_erl_node_pingpong_qc.beam ]
 then
     echo "Compiling test_erl_node_pingpong_qc.erl..."
-    erlc -Wall $eqc_opt test_erl_node_pingpong_qc.erl \
+    $erlc -Wall $eqc_opt test_erl_node_pingpong_qc.erl \
 	|| die "Failed"
 fi
 
@@ -63,15 +64,23 @@ touch "$log"
 env PYTHONPATH=..:"$PYTHONPATH" PYTHONUNBUFFERED=x \
     ./test_erl_node_pingpong.py -q -n "$pynodename" -c cookie > "$log" 2>&1 &
 echo $! > pynode_pid
-#tail -f test_erl_node_pingpong_qc.log-py &
+#tail -f "$log" &
 #dedicated_follower=$!
 
 echo "Starting the erlang qc node..."
 $erl -noinput -sname qcnode1@localhost \
     -setcookie cookie \
-    -s test_erl_node_pingpong_qc start "$pynodename" "PYTHONPATH=..:'$PYTHONPATH' PYTHONUNBUFFERED=x ./test_erl_node_pingpong.py -q -n '$pynodename' -c cookie >> '$log' 2>&1" \
-    -s erlang halt
+    -s test_erl_node_pingpong_qc start_halt "$pynodename" "PYTHONPATH=..:'$PYTHONPATH' PYTHONUNBUFFERED=x ./test_erl_node_pingpong.py -q -n '$pynodename' -c cookie >> '$log' 2>&1"
 
-[ -f pynode_pid ] && kill `cat pynode_pid`
+ec=$?
+[ -f pynode_pid ] && /bin/kill `cat pynode_pid` 2>/dev/null
 /bin/rm -f pynode_pid
 #kill $dedicated_follower
+
+if [ $ec != 0 ]
+then
+    echo "==The Python node log file====================================="
+    cat "$log"
+    echo "==============================================================="
+    exit 1
+fi

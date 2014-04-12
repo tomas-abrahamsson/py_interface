@@ -8,8 +8,16 @@
 %%
 -module(test_erl_node_pingpong).
 
+-export([start_halt/0, start_halt/1]).
 -export([start/0, start/1]).
 
+
+start_halt() -> halt_with_status(start()).
+
+start_halt(Args) -> halt_with_status(start(Args)).
+
+halt_with_status(ok) -> halt(0);
+halt_with_status(_)  -> halt(1).
 
 start() ->
     start(['py_interface_test@localhost']).
@@ -69,18 +77,23 @@ start([OtherNode]) ->
 	    io:format("Waiting for answer again...~n"),
 	    receive
 		LargeTerm -> io:format("Ok, got term ~p~n",[LargeTerm]),
-			     io:format("Test succeeded!~n");
+			     io:format("Test succeeded!~n"),
+                             ok;
 		Y    -> io:format("Oops, got ~p~n",[Y]),
-			io:format("Test failed.~n")
+			io:format("Test failed.~n"),
+                        error
 	    after 10000 ->
 		    io:format("Timeout2~n"),
-		    io:format("Test failed.~n")
+		    io:format("Test failed.~n"),
+                    error
 	    end;
 	X ->
 	    io:format("Oops, expected:~n  ~p~n"++
 		      "got:~n  ~p~n", [Term, X]),
-	    io:format("Test failed.~n")
+	    io:format("Test failed.~n"),
+            error
     after 10000 ->
 	    io:format("Timeout~n"),
-	    io:format("Test failed.~n")
+	    io:format("Test failed.~n"),
+            error
     end.
