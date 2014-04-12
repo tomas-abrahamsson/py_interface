@@ -421,6 +421,7 @@ MAGIC_BINARY = 109
 MAGIC_FUN = 117
 MAGIC_NEW_CACHE = 78
 MAGIC_CACHED_ATOM = 67
+MAGIC_MAP = 116
 
 ###
 ### UNPACKING
@@ -618,6 +619,15 @@ def _UnpackOneTerm(data):
         return (ErlFun(pid, module, index, uniq, freeVars),
                 remainingData5)
 
+    elif data0 == MAGIC_MAP:
+        arity = _ReadInt4(data[1:5])
+        remainingData1 = data[5:]
+        m = ErlMap()
+        (pairs, remainingData2) = _UnpackPairs(arity, remainingData1)
+        for (k, v) in pairs:
+            m[k] = v
+        return (m, remainingData2)
+
     else:
         print "Bad tag %s" % `data0`
 
@@ -632,6 +642,17 @@ def _UnpackTermSeq(numTerms, data):
         seq.append(term)
         remainingData = newRemainingData
     return (seq, remainingData)
+
+def _UnpackPairs(numPairs, data):
+    pairs = []
+    remainingData = data
+    for i in range(numPairs):
+        (k, remainingData2) = _UnpackOneTerm(remainingData)
+        (v, remainingData3) = _UnpackOneTerm(remainingData2)
+        pairs.append((k, v))
+        remainingData = remainingData3
+    return (pairs, remainingData)
+    
 
 def _ReadId(s, maxSignificantBits = 18):
     return _ReadInt4(s) & ((1 << maxSignificantBits) - 1)
@@ -694,6 +715,8 @@ def _PackOneTerm(term):
         return _PackBinary(term)
     elif IsErlFun(term):
         return _PackFun(term)
+    elif IsErlMap(term):
+        return _PackMap(term)
     else:
         print "Term=%s" % `term`
         raise "Can't pack value of type %s" % `type(term)`
@@ -822,6 +845,10 @@ def _PackFun(term):
     return _PackInt1(MAGIC_FUN) + numFreeVars + \
            pid + module + index + uniq + freeVars
 
+def _PackMap(term):
+    arity = _PackInt4(len(term))
+    pairs = [_PackOneTerm(k) + _PackOneTerm(v) for (k,v) in term.iteritems()]
+    return _PackInt1(MAGIC_MAP) + arity + "".join(pairs)
 
 def _PackId(i, maxSignificantBits=18):
     return _PackInt4(i & ((1 << maxSignificantBits) - 1))
