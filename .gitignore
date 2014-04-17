@@ -17,3 +17,7 @@ py_interface-*.tgz
 examples/test_erl_node_pingpong.log-py
 examples/test_erl_node_pingpong_qc.log-py
 /build
+/test/test_erl_node_pingpong.log-py
+/test/test_erl_node_pingpong_qc.log-py
+current_counterexample.*
+erl_crash.dump
