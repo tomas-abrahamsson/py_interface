@@ -53,6 +53,19 @@ import UserDict
 
 from py_interface import erl_common
 
+class HMarker: # a hash (value )marker
+    def __init__(self, discr):
+        self.discr=discr
+    def __repr__(self):
+        return "<hmarker/%s" % self.discr
+hAtom   = HMarker("atom")
+hRef    = HMarker("ref")
+hPort   = HMarker("port")
+hPid    = HMarker("pid")
+hBinary = HMarker("binary")
+hFun    = HMarker("fun")
+hMapKey = HMarker("map-key")
+
 def ErlNumber(number):
     return number
 
@@ -81,7 +94,7 @@ class ErlAtom:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
-        return hash(("$$atom", self.atomText))
+        return hash((hAtom, self.atomText))
     def __str__(self):
         return self.atomText
 
@@ -112,7 +125,7 @@ class ErlRef:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
-        return hash(("$$ref", self.node, self.id, self.creation))
+        return hash((hRef, self.node, self.id, self.creation))
 
 def IsErlRef(term):
     """Checks whether a term is an Erlang reference or not."""
@@ -140,7 +153,7 @@ class ErlPort:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
-        return hash(("$$port", self.node, self.id, self.creation))
+        return hash((hPort, self.node, self.id, self.creation))
 
 def IsErlPort(term):
     """Checks whether a term is an Erlang reference or not."""
@@ -171,7 +184,7 @@ class ErlPid:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
-        return hash(("$$pid", self.node, self.id, self.serial, self.creation))
+        return hash((hPid, self.node, self.id, self.serial, self.creation))
 
 def IsErlPid(term):
     """Checks whether a term is an Erlang process id or not."""
@@ -227,7 +240,7 @@ class ErlBinary:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
-        return hash(("$$binary", self.contents))
+        return hash((hBinary, self.contents))
 
 def IsErlBinary(term):
     """Checks whether a term is an Erlang binary or not."""
@@ -266,7 +279,7 @@ class ErlFun:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
-        return hash(("$$fun", hash(self.pid), hash(self.module),
+        return hash((hFun, hash(self.pid), hash(self.module),
                      self.index, self.uniq, tuple(self.freeVars)))
 
 def IsErlFun(term):
@@ -311,8 +324,7 @@ def UnmakeErlMapKey(k):
 
 class ErlMapKey:
     def __init__(self, elem):
-        marker = '$$$$dummy'
-        self.h = hash((marker, type(elem), pickle.dumps(elem)))
+        self.h = hash((hMapKey, type(elem), pickle.dumps(elem)))
         self.e = elem
     def __hash__(self):
         return self.h
