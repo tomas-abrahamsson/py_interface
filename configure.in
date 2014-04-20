@@ -21,5 +21,47 @@ fi
 AC_MSG_RESULT($HAVE_MAPS)
 AC_SUBST(HAVE_MAPS)
 
+AC_MSG_CHECKING([for eqc])
+if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
+   -eval \
+   'case catch code:which(eqc) of
+         Path when is_list(Path) -> halt(0);
+         _ -> halt(1)
+    end.' \
+   >/dev/null 2>&1)
+then
+	dnl in the io:format below, [[ is translated by m4 into a single [
+	HAVE_EQC=yes
+	eqc_loc=`ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
+	      -eval \
+	      'io:format("~s~n",[[code:which(eqc)]]),halt().'`
+else
+	HAVE_EQC=no
+	eqc_loc=no
+fi
+AC_MSG_RESULT($eqc_loc)
+AC_SUBST(HAVE_EQC)
+
+AC_MSG_CHECKING([for proper])
+if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
+   -eval \
+   'case catch code:which(proper) of
+   	 PATH when is_list(Path) -> halt(0);
+	 _ -> halt(1)
+    end.' \
+   >/dev/null 2>&1)
+then
+	dnl in the io:format below, [[ is translated by m4 into a single [
+	HAVE_PROPER=yes
+	proper_loc=`ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
+	      -eval \
+	      'io:format("~s~n",[[code:which(proper)]]]),halt().'`
+else
+	HAVE_PROPER=no
+	proper_loc=no
+fi
+AC_MSG_RESULT($proper_loc)
+AC_SUBST(HAVE_PROPER)
+
 AC_OUTPUT(Makefile)
 AC_OUTPUT(test/Makefile)

@@ -20,7 +20,7 @@ PYTHONPATH=..:$PYTHONPATH ./test_erl_node_pingpong.py \
 	 > $pylogfile 2>&1 &
 pynode=$!
 
-$erl -noinput -sname enode1@localhost \
+$erl +B -noinput -sname enode1@localhost \
     -setcookie cookie \
     -s test_erl_node_pingpong start_halt
 

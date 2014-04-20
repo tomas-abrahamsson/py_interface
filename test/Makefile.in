@@ -4,24 +4,36 @@ ERLC=@ERLC@
 SHELL=/bin/sh
 
 HAVE_MAPS:=@HAVE_MAPS@
+HAVE_EQC:=@HAVE_EQC@
+HAVE_PROPER:=@HAVE_PROPER@
 
 erlc_feature_flags =
 ifeq ($(HAVE_MAPS),yes)
 	erlc_feature_flags += -DHAVE_MAPS
 endif
 
+ifeq ($(HAVE_EQC),yes)
+	HAVE_QC:=yes
+	erlc_feature_flags += -DHAVE_QC -DHAVE_EQC -DQC=eqc
+else
+ifeq ($(HAVE_PROPER),yes)
+	HAVE_QC:=yes
+	erlc_feature_flags += -DHAVE_QC -DHAVE_PROPER -DQC=proper
+endif
+endif
+
 ERLS = test_erl_node_pingpong.erl
+ifeq ($(HAVE_QC),yes)
+	ERLS += test_erl_node_pingpong_qc.erl
+endif
 
 BEAMS = $(patsubst %.erl,%.beam,$(ERLS))
 
 all: $(BEAMS)
 
 test: all
-	echo ">>$(HAVE_MAPS)<<"
 	./run_test_erl_node_pingpong.sh
-
-qc quickcheck: all
-	./run_test_erl_node_pingpong_qc.sh
+	if [ x"$(HAVE_QC)" = xyes ]; then ./run_test_erl_node_pingpong_qc.sh; fi
 
 %.beam: %.erl
 	$(ERLC) $(erlc_feature_flags) -Wall $<

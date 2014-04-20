@@ -23,7 +23,15 @@
 -define(PYNODENAME_HOLDER_T, list_to_atom(atom_to_list(?MODULE)++"_holder_t")).
 -define(MAX_WAIT_PYNODE_UP, 20). % seconds
 
+-ifdef(HAVE_EQC).
 -include_lib("eqc/include/eqc.hrl").
+-define(qc,eqc).
+-else.
+-ifdef(HAVE_PROPER).
+-include_lib("proper/include/proper.hrl").
+-define(qc,proper).
+-endif.
+-endif.
 
 start_halt() -> halt_with_status(start()).
 
@@ -41,7 +49,7 @@ start([PyNodeName, PyCmdA]) ->
     case wait_until_node_available(PyNodeName, ?MAX_WAIT_PYNODE_UP) of
         ok ->
             io:format("Running tests...~n"),
-            try eqc:module(?MODULE) of
+            try ?qc:module(?MODULE) of
                 []  -> ok;
                 Err -> {error, Err}
             catch Class:Reason ->
@@ -54,7 +62,7 @@ start([PyNodeName, PyCmdA]) ->
     end.
 
 prop_same_term_returns_after_roundtrip() ->
-    eqc:numtests(500,
+    ?qc:numtests(500,
                  prop_same_term_returns_after_roundtrip(get_pynodename())).
 
 prop_same_term_returns_after_roundtrip(PyNodeName) ->
