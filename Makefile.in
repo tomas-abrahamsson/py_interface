@@ -66,10 +66,7 @@ SHELL = /bin/sh
 #	installdirs ps uninstall
 .SUFFIXES: .beam .erl .py
 
-examples/%.beam:	examples/%.erl
-	$(ERLC) -o examples examples/$*.erl
-
-all: $(OBJECTS) py_interface/__init__.py setup.py PKG-INFO
+all: py_interface/__init__.py setup.py PKG-INFO
 
 py_interface/__init__.py: py_interface/__init__.py.src
 	version=`$(cat) vsn`; \
