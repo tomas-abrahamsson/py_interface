@@ -1,0 +1,27 @@
+ERL=@ERL@
+ERLC=@ERLC@
+
+SHELL=/bin/sh
+
+HAVE_MAPS:=@HAVE_MAPS@
+
+erlc_feature_flags =
+ifeq ($(HAVE_MAPS),yes)
+	erlc_feature_flags += -DHAVE_MAPS
+endif
+
+ERLS = test_erl_node_pingpong.erl
+
+BEAMS = $(patsubst %.erl,%.beam,$(ERLS))
+
+all: $(BEAMS)
+
+test: all
+	echo ">>$(HAVE_MAPS)<<"
+	./run_test_erl_node_pingpong.sh
+
+qc quickcheck: all
+	./run_test_erl_node_pingpong_qc.sh
+
+%.beam: %.erl
+	$(ERLC) $(erlc_feature_flags) -Wall $<

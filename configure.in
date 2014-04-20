@@ -8,4 +8,18 @@ AC_CHECK_PROGS(PYTHON, python)
 AC_CHECK_PROGS(ERL, erl)
 AC_CHECK_PROGS(ERLC, erlc)
 
+silent_erl_flags="+B -noinput -sasl errlog_type error"
+
+AC_MSG_CHECKING([whether Erlang supports maps])
+if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} -eval '#{a=>1},halt(0)' \
+   			     >/dev/null 2>&1)
+then
+	HAVE_MAPS=yes
+else
+	HAVE_MAPS=no
+fi
+AC_MSG_RESULT($HAVE_MAPS)
+AC_SUBST(HAVE_MAPS)
+
 AC_OUTPUT(Makefile)
+AC_OUTPUT(test/Makefile)

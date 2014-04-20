@@ -41,14 +41,15 @@ start([OtherNode]) ->
 		     {1},	% small_tuple_ext (up to 255 elements)
 		     {1,2,3,4},	% small_tuple_ext (up to 255 elements)
 		     [],	% nil_ext
-		     "abc",	% string_ext (up to 65k chars)
+		     "abc",	% string_ext (up to 64k chars)
 		     [1,2,3],	% list_ext
 				% fixme: make test for improper lists
 		     <<>>,	% binary_ext
 		     <<"abc">>,	% binary_ext
 		     2 bsl 33,	% small_big_ext
                      -16#80000001,% negative small_big_ext
-		     fixme,	% fixme: flag stuff needed to get funs to work
+		     fixme,	% new_fun_ext
+                     some_map(),
 		     ' $end$ '
 		    ]
 	   },
@@ -97,3 +98,11 @@ start([OtherNode]) ->
 	    io:format("Test failed.~n"),
             error
     end.
+
+-ifdef(HAVE_MAPS).
+some_map() ->
+    #{a=>1}.
+-else.
+some_map() ->
+    no_maps_in_this_release_of_erlang.
+-endif.
