@@ -255,37 +255,50 @@ class ErlFun:
     pid      = <ErlPid>
     module   = <ErlAtom>
     index    = integer
-    uniq     = integer
+    uniq     = integer | 16 bytes
+    oldIndex = integer
+    oldUniq  = integer
+    arity    = 0..255
     freeVars = list(term)
     """
-    def __init__(self, pid, module, index, uniq, freeVars):
+    def __init__(self, pid, module, index, uniq,
+                 oldIndex, oldUniq, arity, freeVars):
         self.pid = pid
         self.module = module
         self.index = index
         self.uniq = uniq
+        self.oldIndex = oldIndex
+        self.oldUniq = oldUniq
+        self.arity = arity
         self.freeVars = freeVars
     def __repr__(self):
-        return "<erl-fun: pid=%s, module=%s, index=%d, uniq=%d, freeVars=%s>"%\
-               (`self.pid`, `self.module`, self.index, self.uniq,
-                `self.freeVars`)
+        return ("<erl-fun: pid=%s, module=%s, index=%d, uniq=%s, " +
+                "oldIndex=%d, oldUniq=%d, arity=%d, freeVars=%s>") % \
+               (`self.pid`, `self.module`, self.index, `self.uniq`,
+                self.oldIndex, self.oldUniq, self.arity, `self.freeVars`)
     def equals(self, other):
         return IsErlFun(other) and \
             self.pid.equals(other.pid) and \
             self.module.equals(other.module) and \
             self.index == other.index and \
             self.uniq == other.uniq and \
+            self.oldIndex == other.oldIndex and \
+            self.oldUniq == other.oldUniq and \
+            self.arity == other.arity and \
             self.freeVars == other.freeVars
     __eq__ = equals
     def __ne__(self, other):
         return not self.__eq__(other)
     def __hash__(self):
         return hash((hFun, hash(self.pid), hash(self.module),
-                     self.index, self.uniq, tuple(self.freeVars)))
+                     self.index, self.uniq,
+                     self.oldIndex, self.oldUniq,
+                     self.arity,
+                     tuple(self.freeVars)))
 
 def IsErlFun(term):
     """Checks whether a term is an Erlang function or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlFun)
-
 
 ## About the Erlang map type vs Python Dict:
 ##
@@ -431,6 +444,7 @@ MAGIC_PORT = 102
 MAGIC_PID = 103
 MAGIC_BINARY = 109
 MAGIC_FUN = 117
+MAGIC_NEW_FUN = 112
 MAGIC_NEW_CACHE = 78
 MAGIC_CACHED_ATOM = 67
 MAGIC_MAP = 116
@@ -628,8 +642,25 @@ def _UnpackOneTerm(data):
         (index, remainingData3)  = _UnpackOneTerm(remainingData2)
         (uniq, remainingData4) = _UnpackOneTerm(remainingData3)
         (freeVars, remainingData5) = _UnpackTermSeq(freevarsLen,remainingData4)
-        return (ErlFun(pid, module, index, uniq, freeVars),
+        return (ErlFun(pid, module, index, uniq, 0, 0, 0, freeVars),
                 remainingData5)
+
+    elif data0 == MAGIC_NEW_FUN:
+        size = _ReadInt4(data[1:5]) # total number of bytes including the size
+        funData = _ReadInt4(data[1:size+1])
+        arity = _ReadInt1(data[5])
+        uniq = data[6:22]
+        index = _ReadInt4(data[22:26])
+        numFree = _ReadInt4(data[26:30])
+        (module, remainingData2) = _UnpackOneTerm(data[30:])
+        (oldIndex, remainingData3) = _UnpackOneTerm(remainingData2)
+        (oldUniq, remainingData4) = _UnpackOneTerm(remainingData3)
+        (pid, remainingData5) = _UnpackOneTerm(remainingData4)
+        (freeVars, remainingData6) = _UnpackTermSeq(numFree, remainingData5)
+        return (ErlFun(pid, module, index, uniq,
+                       oldIndex, oldUniq, arity,
+                       freeVars),
+                remainingData6)
 
     elif data0 == MAGIC_MAP:
         arity = _ReadInt4(data[1:5])
@@ -845,7 +876,8 @@ def _PackBinary(term):
            _PackInt4(len(term.contents)) + \
            term.contents
 
-def _PackFun(term):
+def _PackOldFun(term):
+    # FIXME: when to call this?
     numFreeVars = _PackInt4(len(term.freeVars))
     pid = _PackPid(term.pid)
     module = _PackAtom(term.module)
@@ -856,6 +888,24 @@ def _PackFun(term):
         freeVars = freeVars + _PackOneTerm(freeVar)
     return _PackInt1(MAGIC_FUN) + numFreeVars + \
            pid + module + index + uniq + freeVars
+
+def _PackFun(term):
+    arity = _PackInt1(term.arity)
+    uniq = term.uniq
+    index = _PackInt4(term.index)
+    numFree = _PackInt4(len(term.freeVars))
+    module = _PackOneTerm(term.module)
+    # oldIndex and oldUniq must be SMALL_INTEGER_EXT or INTEGER_EXT
+    # FIXME: should either somehow force them to be that,
+    # or verify/assert that they end up being that
+    oldIndex = _PackOneTerm(term.oldIndex)
+    oldUniq = _PackOneTerm(term.oldUniq)
+    pid = _PackOneTerm(term.pid)
+    freeVars = "".join([_PackOneTerm(x) for x in term.freeVars])
+    info = arity + uniq + index + numFree + \
+           module + oldIndex + oldUniq + pid + freeVars
+    size = _PackInt4(4 + len(info)) # size includes the size field
+    return _PackInt1(MAGIC_NEW_FUN) + size + info
 
 def _PackMap(term):
     arity = _PackInt4(len(term))

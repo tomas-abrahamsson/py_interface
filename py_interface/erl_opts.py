@@ -55,6 +55,8 @@ class ErlNodeOpts:
                  distrVersion=5,
                  distrFlags=(DISTR_FLAG_EXTENDEDREFERENCES|
                              DISTR_FLAG_EXTENDEDPIDSPORTS|
+                             DISTR_FLAG_FUNTAGS|
+                             DISTR_FLAG_NEWFUNTAGS|
                              DISTR_FLAG_MAPTAG)
                  ):
         self._netTickTime = netTickTime

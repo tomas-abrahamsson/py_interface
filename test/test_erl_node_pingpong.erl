@@ -48,7 +48,8 @@ start([OtherNode]) ->
 		     <<"abc">>,	% binary_ext
 		     2 bsl 33,	% small_big_ext
                      -16#80000001,% negative small_big_ext
-		     fixme,	% new_fun_ext
+		     fun() -> ok end, % new_fun_ext
+		     fun dummy/1, % new_fun_ext
                      some_map(),
 		     ' $end$ '
 		    ]
@@ -98,6 +99,9 @@ start([OtherNode]) ->
 	    io:format("Test failed.~n"),
             error
     end.
+
+dummy(_) ->
+    ok.
 
 -ifdef(HAVE_MAPS).
 some_map() ->
