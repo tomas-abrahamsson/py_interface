@@ -1,3 +1,12 @@
+version 1.2, 2014-Apr-21
+
+	* Add support for Erlang 17.0 maps.  Add a configure check for
+	maps (don't test maps on pre-17.0)
+	* Move some tests from examples/ to test/ and add a top-level
+	Makefile target: test
+	* Add configure checks for eqc[mini] and proper, and run those
+	tests only if any of them is present.
+
 version 1.1.1, 2010-Mar-15
 
         * examples/run_remote_exec_wrapper.sh,

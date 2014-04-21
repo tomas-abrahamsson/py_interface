@@ -27,12 +27,15 @@ Some characteristics:
   a class is used.
 * The Python node is a single threaded callback-driven process.
 * The Python node is released under LGPL, see the file COPYING.LIB.
-* The Python node runs on Python 1.5 -- Python 2.3. It
-  can talk to Erlang R7 -- R9 nodes, as far as I know.
+* Work originally begain with Erlang R7 and Python 1.5
+* It was recently tested with Erlang 17.0 and Python 2.7
 * The source of information for this Python node has been the files
   `distribution_handshake.txt' and `erl_ext_dist.txt' together with
   the Java node source files, the `net_kernel.erl' and the
   `dist_util.erl' files in the Erlang source code distribution.
+  Nowadays, this is all documented here:
+  http://erlang.org/doc/apps/erts/erl_ext_dist.html
+  http://erlang.org/doc/apps/erts/erl_dist_protocol.html
 
 
 General programming model
@@ -45,7 +48,7 @@ whenever the message or return value arrives or when the timer times
 out.
 
 The easiest way to get acquainted with the Python node, check out the
-test programs:
+exampels and the test programs:
 
 * run_test_erl_node_pingping.sh
   This tests communication, packing and unpacking of terms,
@@ -67,5 +70,5 @@ test programs:
 Contacting the author
 ---------------------
 To contact the author, Tomas Abrahamsson: send a mail to:
-tab@lysator.liu.se
+tab@lysator.liu.se or tomas.abrahamsson@gmail.com
 

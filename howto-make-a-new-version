@@ -8,6 +8,7 @@
    make clean && \
    make && \
    ./setup.py build && \
+   make test &&
    make dist &&
    (  export vsn=`cat vsn` && \
       /bin/rm -rf tt && \
