@@ -8,8 +8,8 @@
    make clean && \
    make && \
    ./setup.py build && \
-   make test &&
-   make dist &&
+   make test && \
+   make dist && \
    (  export vsn=`cat vsn` && \
       /bin/rm -rf tt && \
       mkdir tt && cd tt && \
@@ -17,6 +17,7 @@
       cd py_interface-$vsn && \
       ./configure && \
       make && \
+      make test && \
       ./setup.py build ) && \
    /bin/rm -rf tt &&
    echo "Success!"

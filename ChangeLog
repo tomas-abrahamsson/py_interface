@@ -1,3 +1,7 @@
+version 1.2.1, 2014-Apr-21
+
+	* Fix a bug in the dist top-level make target
+
 version 1.2, 2014-Apr-21
 
 	* Add support for Erlang 17.0 maps.  Add a configure check for

@@ -47,7 +47,7 @@ TESTPROGRAMS = test/test_erl_node_pingpong.py \
                test/run_test_erl_node_pingpong.sh \
                test/run_test_erl_node_pingpong_qc.sh \
                test/test_erl_node_pingpong_qc.erl \
-	       test/Makefile
+	       test/Makefile.in
 
 
 OBJECTS = test/test_erl_node_pingpong.beam
