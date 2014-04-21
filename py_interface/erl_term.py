@@ -64,6 +64,7 @@ hPort   = HMarker("port")
 hPid    = HMarker("pid")
 hBinary = HMarker("binary")
 hFun    = HMarker("fun")
+hFunExport = HMarker("fun-export")
 hMapKey = HMarker("map-key")
 
 def ErlNumber(number):
@@ -300,6 +301,34 @@ def IsErlFun(term):
     """Checks whether a term is an Erlang function or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlFun)
 
+class ErlFunExport:
+    """An Erlang fun M:F/A. The following attributes are defined:
+    module = an atom
+    function = an atom
+    arity = an integer
+    """
+    def __init__(self, module, function, arity):
+        self.module = module
+        self.function = function
+        self.arity = arity
+    def __repr__(self):
+        return "<erl-export: module=%s, function=%s, arity=%d>" % \
+               (`self.module`, `self.function`, self.arity)
+    def equals(self, other):
+        return IsErlFunExport(other) and \
+               self.module == other.module and \
+               self.function == other.function and \
+               self.arity == other.arity
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash((hFunExport, self.module, self.function, self.arity))
+
+def IsErlFunExport(term):
+    """Checks whether a term is an Erlang function export or not."""
+    return type(term) == types.InstanceType and isinstance(term, ErlFunExport)
+
 ## About the Erlang map type vs Python Dict:
 ##
 ## In Python, it is not possible to have a list as an dict key,
@@ -448,6 +477,7 @@ MAGIC_NEW_FUN = 112
 MAGIC_NEW_CACHE = 78
 MAGIC_CACHED_ATOM = 67
 MAGIC_MAP = 116
+MAGIC_EXPORT = 113
 
 ###
 ### UNPACKING
@@ -662,6 +692,12 @@ def _UnpackOneTerm(data):
                        freeVars),
                 remainingData6)
 
+    elif data0 == MAGIC_EXPORT:
+        (module, remainingData2) = _UnpackOneTerm(data[1:])
+        (function, remainingData3) = _UnpackOneTerm(remainingData2)
+        (arity, remainingData4) = _UnpackOneTerm(remainingData3)
+        return (ErlFunExport(module, function, arity), remainingData4)
+        
     elif data0 == MAGIC_MAP:
         arity = _ReadInt4(data[1:5])
         remainingData1 = data[5:]
@@ -758,6 +794,8 @@ def _PackOneTerm(term):
         return _PackBinary(term)
     elif IsErlFun(term):
         return _PackFun(term)
+    elif IsErlFunExport(term):
+        return _PackFunExport(term)
     elif IsErlMap(term):
         return _PackMap(term)
     else:
@@ -906,6 +944,12 @@ def _PackFun(term):
            module + oldIndex + oldUniq + pid + freeVars
     size = _PackInt4(4 + len(info)) # size includes the size field
     return _PackInt1(MAGIC_NEW_FUN) + size + info
+
+def _PackFunExport(term):
+    module = _PackOneTerm(term.module)
+    function = _PackOneTerm(term.function)
+    arity = _PackOneTerm(term.arity)
+    return _PackInt1(MAGIC_EXPORT) + module + function + arity
 
 def _PackMap(term):
     arity = _PackInt4(len(term))

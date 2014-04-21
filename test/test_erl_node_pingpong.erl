@@ -50,6 +50,7 @@ start([OtherNode]) ->
                      -16#80000001,% negative small_big_ext
 		     fun() -> ok end, % new_fun_ext
 		     fun dummy/1, % new_fun_ext
+		     fun lists:usort/1, % export_ext
                      some_map(),
 		     ' $end$ '
 		    ]
