@@ -53,6 +53,7 @@ import pickle
 import UserDict
 
 from py_interface import erl_common
+from py_interface import erl_opts
 
 class HMarker: # a hash (value )marker
     def __init__(self, discr):
@@ -910,14 +911,14 @@ def _PackLongBytes(term, numBytesNeeded):
         bignum = bignum >> 8
     return bignumBytes
 
-def _PackOldFloat(term, flags):
-    floatStr = "%.20e" % term
-    nullPadStr = _PackInt1(0) * (31 - len(floatStr))
-    return _PackInt1(MAGIC_FLOAT) + floatStr + nullPadStr
-
 def _PackFloat(term, flags):
-    floatData = struct.pack(">d", term)
-    return _PackInt1(MAGIC_NEW_FLOAT) + floatData
+    if flags & erl_opts.DISTR_FLAG_NEWFLOATS:
+        floatData = struct.pack(">d", term)
+        return _PackInt1(MAGIC_NEW_FLOAT) + floatData
+    else:
+        floatStr = "%.20e" % term
+        nullPadStr = _PackInt1(0) * (31 - len(floatStr))
+        return _PackInt1(MAGIC_FLOAT) + floatStr + nullPadStr
 
 def _PackInt(term, flags):
     if 0 <= term < 256:
@@ -976,36 +977,36 @@ def _PackBitBinary(term, flags):
            _PackInt1(term.bits) + \
            term.contents
 
-def _PackOldFun(term, flags):
-    # FIXME: when to call this?
-    numFreeVars = _PackInt4(len(term.freeVars))
-    pid = _PackPid(term.pid)
-    module = _PackAtom(term.module)
-    index = _PackInt(term.index)
-    uniq = _PackInt(term.uniq)
-    freeVars = ""
-    for freeVar in term.freeVars:
-        freeVars = freeVars + _PackOneTerm(freeVar, flags)
-    return _PackInt1(MAGIC_FUN) + numFreeVars + \
-           pid + module + index + uniq + freeVars
-
 def _PackFun(term, flags):
-    arity = _PackInt1(term.arity)
-    uniq = term.uniq
-    index = _PackInt4(term.index)
-    numFree = _PackInt4(len(term.freeVars))
-    module = _PackOneTerm(term.module, flags)
-    # oldIndex and oldUniq must be SMALL_INTEGER_EXT or INTEGER_EXT
-    # FIXME: should either somehow force them to be that,
-    # or verify/assert that they end up being that
-    oldIndex = _PackOneTerm(term.oldIndex, flags)
-    oldUniq = _PackOneTerm(term.oldUniq, flags)
-    pid = _PackOneTerm(term.pid, flags)
-    freeVars = "".join([_PackOneTerm(x, flags) for x in term.freeVars])
-    info = arity + uniq + index + numFree + \
-           module + oldIndex + oldUniq + pid + freeVars
-    size = _PackInt4(4 + len(info)) # size includes the size field
-    return _PackInt1(MAGIC_NEW_FUN) + size + info
+    if flags & erl_opts.DISTR_FLAG_NEWFUNTAGS and \
+       type(term.uniq) == types.StringType:
+        arity = _PackInt1(term.arity)
+        uniq = term.uniq
+        index = _PackInt4(term.index)
+        numFree = _PackInt4(len(term.freeVars))
+        module = _PackOneTerm(term.module, flags)
+        # oldIndex and oldUniq must be SMALL_INTEGER_EXT or INTEGER_EXT
+        # FIXME: should either somehow force them to be that,
+        # or verify/assert that they end up being that
+        oldIndex = _PackOneTerm(term.oldIndex, flags)
+        oldUniq = _PackOneTerm(term.oldUniq, flags)
+        pid = _PackOneTerm(term.pid, flags)
+        freeVars = "".join([_PackOneTerm(x, flags) for x in term.freeVars])
+        info = arity + uniq + index + numFree + \
+               module + oldIndex + oldUniq + pid + freeVars
+        size = _PackInt4(4 + len(info)) # size includes the size field
+        return _PackInt1(MAGIC_NEW_FUN) + size + info
+    else:
+        numFreeVars = _PackInt4(len(term.freeVars))
+        pid = _PackPid(term.pid)
+        module = _PackAtom(term.module)
+        index = _PackInt(term.index)
+        uniq = _PackInt(term.uniq)
+        freeVars = ""
+        for freeVar in term.freeVars:
+            freeVars = freeVars + _PackOneTerm(freeVar, flags)
+        return _PackInt1(MAGIC_FUN) + numFreeVars + \
+               pid + module + index + uniq + freeVars
 
 def _PackFunExport(term, flags):
     module = _PackOneTerm(term.module, flags)
