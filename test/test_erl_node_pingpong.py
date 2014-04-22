@@ -36,12 +36,12 @@ def __TestMBoxCallback(msg, *k, **kw):
                 if not quiet:
                     print "Sending it back to %s" % (dest,)
                 mb.Send(dest, msg)
-                
+
 
 
 def main(argv):
     global mb, quiet
-    
+
     try:
         opts, args = getopt.getopt(argv[1:], "?dn:c:q")
     except getopt.error, info:

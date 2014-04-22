@@ -31,7 +31,7 @@ while [ $registered = false -a $num_tries -lt 10 ]
 do
     if ($epmd -names | egrep '^name enode at port' >/dev/null)
     then
-	registered=true
+        registered=true
     fi
     sleep 1
     printf "."

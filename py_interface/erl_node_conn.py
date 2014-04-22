@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -50,18 +50,18 @@ def CheckDigest(digest, challenge, cookie):
     DIGEST      = string
     CHALLENGE   = integer | longinteger
     COOKIE      = string
-    
+
     Returns: 1 | 0
     Throws:  nothing
     """
     expectedDigest = GenDigest(challenge, cookie)
     return expectedDigest == digest
-        
+
 def GenDigest(challenge, cookie):
     """Generates a digest from a CHALLENGE and a COOKIE.
     CHALLENGE   = integer | longinteger
     COOKIE      = string
-    
+
     Returns: string
     Throws:  nothing
     """
@@ -137,7 +137,7 @@ class Ticker:
                 self._noResponseCb()
             else:
                 self._StartResponseTimer()
-                                      
+
     def _InitStartTickTimer(self, netTickTime, timeToTickCb):
         self._timeToTickCb = timeToTickCb
         self._tickTimeout = netTickTime * 0.25
@@ -212,7 +212,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._peerFlags = 0xffffFFFF
         self._state = self._STATE_DISCONNECTED
         # 2 bytes for the packet length during the handshake, then 4 bytes
-        self._packetLenSize = 2         
+        self._packetLenSize = 2
         # These are started once the connection is up
         self._tickTimers = None
 
@@ -425,7 +425,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._state = self._STATE_DISCONNECTED
         self._tickTimers.Stop()
         self._connectionBrokenCb()
-        
+
 
     def _SendName(self):
         packet = "n" + \
@@ -584,7 +584,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._peerName = nodeName
         self._peerFlags = 0xffffFFFF
         # 2 bytes for the packet length during the handshake, then 4 bytes
-        self._packetLenSize = 2         
+        self._packetLenSize = 2
         # These are started once the connection is up
         self._tickTimers = None
 
@@ -722,7 +722,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 erl_common.DebugHex(M, "msgType=%c" % msgType, data)
         else:
             erl_common.DebugHex(M, "state=%d" % self._state, data)
-            
+
 
     def _Tick(self):
         """This callback is called by the Ticker class instance
@@ -739,7 +739,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._state = self._STATE_DISCONNECTED
         self._tickTimers.Stop()
         self._connectionBrokenCb(self, self.GetPeerNodeName())
-        
+
 
     def _SendStatusOk(self):
         self._SendHandshakeMsg("sok")

@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -43,14 +43,14 @@ class ErlAsyncPeerConnection:
         else:
             self._Init()
             self._SetConnectionOpen(openSocket)
-        
+
 
     def Close(self):
         if not self._isConnected:
             return
         self._SetConnectionClosed()
 
-    
+
     def Send(self, data):
         self._SendOrQueue(data)
 
@@ -123,10 +123,10 @@ class ErlAsyncPeerConnection:
 
     def ReadInt1(self, s):
         return erl_common.ReadInt1(s)
-    
+
     def ReadInt2(self, s):
         return erl_common.ReadInt2(s)
-    
+
     def ReadInt4(self, s):
         return erl_common.ReadInt4(s)
 
@@ -138,7 +138,7 @@ class ErlAsyncPeerConnection:
 
     def PackInt4(self, i):
         return erl_common.PackInt4(i)
-    
+
 
 class ErlAsyncClientConnection(ErlAsyncPeerConnection):
     def __init__(self):
@@ -163,7 +163,7 @@ class ErlAsyncClientConnection(ErlAsyncPeerConnection):
 class ErlAsyncServer(ErlAsyncPeerConnection):
     def __init__(self):
         ErlAsyncPeerConnection.__init__(self)
-        
+
     def Start(self, portNum=0, iface=""):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
@@ -184,7 +184,7 @@ class ErlAsyncServer(ErlAsyncPeerConnection):
         s = self.GetConnection()
         (s2, (remoteHost, remotePort)) = s.accept()
         self._NewConnection(s2, (remoteHost, remotePort))
-        
+
     def _NewConnection(self, sockConn, remoteAddr):
         asyncConnection = ErlAsyncPeerConnection(s2)
         pass

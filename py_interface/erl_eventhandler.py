@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -71,7 +71,7 @@ def SetEventHandlerStateTk(top):
 
     Returns: void
     Throws:  nothing
-    
+
     Call this when you want to use the event handler in a program that uses
     Tkinter. The argument is expected to be the object that's returned by
     a call to Tkinter.Tk().
@@ -205,14 +205,14 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         self.readEvents[connection] = newHandlers
         if self.state == self.STATE_TK:
             self._TkPushFileHandler(self.READ, connection)
-            
+
 
     def PopReadEvent(self, connection):
         """Unregister a read callback for a connection.
         Or really, pop it from the stack of callbacks.
 
         CONNECTION    = <any object that has a fileno() method>
-        
+
         Returns: void
         Throws:  nothing
         """
@@ -255,7 +255,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         Or really, pop it from the stack of callbacks.
 
         CONNECTION    = <any object that has a fileno() method>
-        
+
         Returns: void
         Throws:  nothing
         """
@@ -298,7 +298,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         Or really, pop it from the stack of callbacks.
 
         CONNECTION    = <any object that has a fileno() method>
-        
+
         Returns: void
         Throws:  nothing
         """
@@ -440,7 +440,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
                                        self.timerEvents)
                 if len(expiredTimers) == 0:
                     break               # skip the while loop
-                
+
                 for expiredTimer in expiredTimers:
                     expiredTimer.cb()
                     self.DelTimerEvent(expiredTimer.id)

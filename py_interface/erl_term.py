@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -106,7 +106,7 @@ def IsErlAtom(term):
     """Checks whether a term is an Erlang atom or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlAtom)
 
-            
+
 class ErlRef:
     """An Erlang reference. The following attributes are defined:
     node     = <ErlAtom>
@@ -201,7 +201,7 @@ def ErlTuple(elementsAsList):
 def ErlList(elements):
     """An Erlang list. This maps to a python list."""
     return elements
-    
+
 class ErlImproperList:
     """An improper erlang list (one where the tail is not []).
     Can be iterated over to get the elements, by default will include
@@ -226,10 +226,10 @@ class ErlImproperList:
             if self.iterOnTail and key==len(self.elements):
                 return self.tail
             raise IndexError
-        
+
 def IsErlImproperList(term):
     return type(term)== types.InstanceType and isinstance(term, ErlImproperList)
-    
+
 class ErlBinary:
     """An Erlang binary. The following attributes are defined:
     contents = string
@@ -566,7 +566,7 @@ def BufToTerm(data):
         inputData = remainingData
 
 def _UnpackOneTermTop(data):
-    if len(data) == 0: 
+    if len(data) == 0:
         return (None, data)
     if data[0] != chr(MAGIC_VERSION):
         return (None, data)
@@ -780,7 +780,7 @@ def _UnpackPairs(numPairs, data):
         pairs.append((k, v))
         remainingData = remainingData3
     return (pairs, remainingData)
-    
+
 
 def _ReadId(s, maxSignificantBits = 18):
     return _ReadInt4(s) & ((1 << maxSignificantBits) - 1)
@@ -803,7 +803,7 @@ def _ReadSignedInt4(s):
         return n
     else:
         return -(0x100000000-n)
-        
+
 ###
 ### PACKING
 ###
@@ -855,7 +855,7 @@ def _PackOneTerm(term, flags):
         print "Term=%s" % `term`
         raise "Can't pack value of type %s" % `type(term)`
 
-    
+
 def _PackString(term, flags):
     if len(term) == 0:
         return _PackList([])
@@ -1034,4 +1034,3 @@ def _PackInt2(i):
 
 def _PackInt4(i):
     return erl_common.PackInt4(i)
-

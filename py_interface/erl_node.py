@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -313,7 +313,7 @@ class ErlNode:
     MBoxes, which corresponds to erlang processes, can be created for
     communication.
     """
-    # Early operations 
+    # Early operations
     CTRLMSGOP_LINK = 1
     CTRLMSGOP_SEND = 2
     CTRLMSGOP_EXIT = 3
@@ -332,7 +332,7 @@ class ErlNode:
     CTRLMSGOP_DEMONITOR_P = 20
     CTRLMSGOP_MONITOR_P_EXIT = 21
     # end of operations
-    
+
     def __init__(self, nodeName, opts=erl_opts.ErlNodeOpts()):
         """Constructor.
 
@@ -381,7 +381,7 @@ class ErlNode:
         self._epmd.SetOwnPortNum(self._portNum)
         self._epmd.SetOwnNodeName(self._nodeName)
         self._CreateRex()
-        
+
     def CreateMBox(self, msgCallback=None):
         """Creates an mbox, which is equivalent to an erlang process.
 
@@ -724,7 +724,7 @@ class ErlNode:
             del self._connections[nodeName]
             for (id, cb) in self._nodeDownCb:
                 cb("nodedown", nodeName)
-    
+
     def _PingEpmdResponse(self, result, portNum, nodeType, proto,
                           distVSNRange, nodeNameNoHost, extra,
                           remoteNodeName):
@@ -773,7 +773,7 @@ class ErlNode:
             del self._ongoingPings[remoteNodeName]
             for cb in callbacks:
                 cb("pang")
-        
+
 
     def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
         """This callback is called when a connection recevies a message of

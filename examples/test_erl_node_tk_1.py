@@ -23,7 +23,7 @@ class TkTest:
         if sys.stdin.isatty():
             # only useful if stdin might generate KeyboardInterrupt
             self.__CheckKbdInterrupt()
-    
+
         f1 = Frame(top)
         self.destVar = StringVar()
         self.msgVar = StringVar()
@@ -80,7 +80,7 @@ class TkTest:
     def __CheckKbdInterrupt(self):
         # Exercise the Python interpreter regularly so keyboard
         # interrupts get through
-        self.evhand.AddTimerEvent(0.25, self.__CheckKbdInterrupt)        
+        self.evhand.AddTimerEvent(0.25, self.__CheckKbdInterrupt)
 
     def Send(self, event=None):
         dest = eval(self.destVar.get())
@@ -136,7 +136,7 @@ def ExprRebuildAtoms(expr):
         return tuple(rebuiltList)
     else:
         return expr
-        
+
 
 
 

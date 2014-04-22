@@ -46,7 +46,7 @@ def TestPort2Resp(result, portNum, nodeType, proto, distr, nodeName, extra):
     else:
         # not found
         print "Port2Resp, result=%d" % result
-        
+
 
 def TestNamesResp(epmdPortNum, nodeInfo):
     print "NamesResp, epmdPortNum=%d nodeInfo:\n%s" % \
@@ -102,4 +102,3 @@ def main(argv):
 
 
 main(sys.argv)
-

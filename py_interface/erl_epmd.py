@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -369,7 +369,7 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
                 self._oneShotCallback(self._recvdata)
         else:
             self._recvdata = self._recvdata + newData
-                
+
 
     def _UnpackPortPleaseResp(self, resp, cb):
         portNum = self.ReadInt2(resp[0:2])
@@ -463,7 +463,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
                self.PackInt2(portNum) +
                self.PackInt1(nodeType) +
                self.PackInt1(0) +      # protocol: 0 = tcp/ip-v4
-               self.PackInt2(distrVSNRange[0]) + 
+               self.PackInt2(distrVSNRange[0]) +
                self.PackInt2(distrVSNRange[1]) +
                self.PackInt2(len(aliveName)) + aliveName +
                self.PackInt2(len(extra)) + extra)
@@ -509,7 +509,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
         self._NewCurrReq(ord(req[0]), cb)
         msg = self.PackInt2(len(req)) + req
         self.Send(msg)
-        
+
 
     def _NewCurrReq(self, reqId, cb):
         self._currentRequests.append((reqId, cb))
@@ -574,7 +574,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
             else:
                 self._CurrReqDone()
             toBeUnpacked = remainingInput
-            
+
 
     def _HandleMsg(self, data):
         dataLen = len(data)

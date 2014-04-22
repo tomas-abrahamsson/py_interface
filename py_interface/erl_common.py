@@ -5,19 +5,19 @@
 ### Copyright (C) 2002  Tomas Abrahamsson
 ###
 ### Author: Tomas Abrahamsson <tab@lysator.liu.se>
-### 
+###
 ### This file is part of the Py-Interface library
 ###
 ### This library is free software; you can redistribute it and/or
 ### modify it under the terms of the GNU Library General Public
 ### License as published by the Free Software Foundation; either
 ### version 2 of the License, or (at your option) any later version.
-### 
+###
 ### This library is distributed in the hope that it will be useful,
 ### but WITHOUT ANY WARRANTY; without even the implied warranty of
 ### MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 ### Library General Public License for more details.
-### 
+###
 ### You should have received a copy of the GNU Library General Public
 ### License along with this library; if not, write to the Free
 ### Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
@@ -31,12 +31,12 @@ import socket
 def ReadInt1(s):
     """Convert first byte from a string to an unsigned 8-bit integer."""
     return ord(s[0])
-    
+
 def ReadInt2(s):
     """Convert first two bytes from a string to an unsigned 16-bit integer."""
     return (ord(s[0]) << 8) + \
            (ord(s[1]) << 0)
-    
+
 def ReadInt4(s):
     """Convert first four bytes from a string to an unsigned 32-bit integer.
 
@@ -145,7 +145,7 @@ def GetFullyQualifiedHostName(name=""):
             else:
                 name = hostname
         return name
-    
+
 def getenv(envName):
     """Read an environment variable.
     ENV-NAME = string
@@ -200,7 +200,7 @@ def Log(str):
         except IOError, info:
             # Silently ignore
             pass
-    
+
 
 _modulesToDebug = []
 _debugAllModules = 0
@@ -233,7 +233,7 @@ def DebugOnAll():
 def DebugOn(moduleList):
     """Turn on debugging for selected modules
     MODULE-LIST = list(string)
-    
+
     Returns: void
     Throws:  nothing
 
@@ -377,7 +377,7 @@ class Callback:
         except:
             print "Error in VCallback %s" % self.__repr__()
             raise
-            
+
     def __repr__(self):
         return "<Callback to %s>" % `self.callback`
 
@@ -416,4 +416,3 @@ class VCallback:
 
     def __repr__(self):
         return "<VCallback to %s>" % `self.callback`
-

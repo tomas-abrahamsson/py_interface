@@ -17,7 +17,7 @@ pylogfile=test_erl_node_pingpong.log-py
 # Now start the pythonnode
 PYTHONPATH=..:$PYTHONPATH ./test_erl_node_pingpong.py \
     -d -n py_interface_test@localhost -c cookie \
-	 > $pylogfile 2>&1 &
+         > $pylogfile 2>&1 &
 pynode=$!
 
 $erl +B -noinput -sname enode1@localhost \
