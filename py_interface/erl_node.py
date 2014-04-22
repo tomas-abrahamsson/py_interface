@@ -45,6 +45,23 @@ py_interface_version = "0.9"
 _pidCount = 1
 _serial = 0
 
+class ErlNodeBadPeerNameError(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
+class ErlNodeIsRegisteredError(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
+class ErlNodeNotRegisteredError(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
+class ErlNodeConnectionFailedError(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
+
 class ErlMBox:
     """This class provides an mbox, which is equivalent to an
     erlang-process. It is intenteded to be used in a single-threaded
@@ -420,7 +437,7 @@ class ErlNode:
           "pang": the remote node is down.
         """
         if not "@" in remoteNodeName:
-            raise "Bad node name for remote node \"%s\"" % remoteNodeName
+            raise ErlNodeBadPeerNameError(remoteNodeName)
         if self._ongoingPings.has_key(remoteNodeName):
             pingCallbacks = self._ongoingPings[remoteNodeName]
             self._ongoingPings[remoteNodeName] = pingCallbacks + [pingCallback]
@@ -550,9 +567,9 @@ class ErlNode:
         """
         mboxPid = mbox.Self()
         if self._registeredNames.has_key(name):
-            raise "IsRegistered"
+            raise ErlNodeIsRegisteredError(name)
         if self._registeredPids.has_key(mboxPid):
-            raise "IsRegistered"
+            raise ErlNodeIsRegisteredError(name)
         self._registeredNames[name] = mboxPid
         self._registeredPids[mboxPid] = name
 
@@ -564,7 +581,7 @@ class ErlNode:
         """
         mboxPid = mbox.Self()
         if not self._registeredPids.has_key(mboxPid):
-            raise "NotRegistered"
+            raise ErlNodeNotRegisteredError("pid not registered %s" % `mbox`)
         name = self._registeredPids[mboxPid]
         del self._registeredPids[mboxPid]
         del self._registeredNames[name]
@@ -704,7 +721,7 @@ class ErlNode:
         self._creation = creation
 
     def _EpmdConnectFailed(self, errorResult):
-        raise "Failed to connect to epmd (%d)" % errorResult
+        raise ErlNodeConnectionFailedError(errorResult)
 
     def _NodeUp(self, connection, nodeName):
         """This callback is called from the in/out connection object

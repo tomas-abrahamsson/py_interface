@@ -46,6 +46,10 @@ from py_interface import erl_common
 
 _evhandler = None
 
+class ErlEventHandlerError (Exception):
+    def __init__(self, reason):
+        self.reason = reason
+ 
 ### ---------------------------------------------------
 ### API
 ###
@@ -344,7 +348,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         Note that it is not possible to unregister timer events when using Tk.
         """
         if self.state == self.STATE_TK:
-            raise "Cannot delete timer events when using tk"
+            raise ErlEventHandlerError("Cannot delete timers when using tk")
 
         indexForId = None
         it = map(None, range(len(self.timerEvents)), self.timerEvents)

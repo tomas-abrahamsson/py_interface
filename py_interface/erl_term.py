@@ -70,6 +70,10 @@ hFun    = HMarker("fun")
 hFunExport = HMarker("fun-export")
 hMapKey = HMarker("map-key")
 
+class ErlTermError(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
 def ErlNumber(number):
     return number
 
@@ -84,7 +88,7 @@ class ErlAtom:
             if _atom_cache.has_key(cache):
                 self.atomText = _atom_cache[cache]
             else:
-                raise "No such cached atom: %s" % `cache`
+                raise ErlTermError("No such cached atom: %s" % `cache`)
         elif atomText != None and cache != -1:
             self.atomText = atomText
             _atom_cache[cache] = atomText
@@ -531,7 +535,7 @@ def BinaryToTerm(binary):
     """
     (term, remaining) = _UnpackOneTermTop(binary)
     if len(remaining) != 0:
-        raise "BinaryToTerm: Extraneous data in binary"
+        raise ErlTermError("BinaryToTerm: Extraneous data in binary")
     return term
 
 def BinariesToTerms(binary):
@@ -546,7 +550,7 @@ def BinariesToTerms(binary):
     """
     (terms, remaining) = BufToTerm(binary)
     if len(remaining) != 0:
-        raise "BinariesToTerms: Extraneous data in binary"
+        raise ErlTermError("BinariesToTerms: Extraneous data in binary")
     return terms
 
 def BufToTerm(data):
@@ -846,8 +850,8 @@ def _PackOneTerm(term, flags):
     elif IsErlMap(term):
         return _PackMap(term, flags)
     else:
-        print "Term=%s" % `term`
-        raise "Can't pack value of type %s" % `type(term)`
+        raise ErlTermError("Can't pack value of type %s: %s" %
+                           (`type(term)`, `term`))
 
 
 def _PackString(term, flags):

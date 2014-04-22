@@ -40,6 +40,10 @@ NODETYPE_HIDDEN = 72
 
 M = "erl_epmd"
 
+class ErlEpmdError(Exception):
+    def __init__(self, reason):
+        self.reason = reason
+
 class ErlEpmd:
     """This class provides a connection to the Erlang Portmapper Daemon, EPMD.
     """
@@ -102,7 +106,7 @@ class ErlEpmd:
         self._connectFailedCb = connectFailedCb
         self._epmdConn = ErlEPMDStdConnection()
         if not self._epmdConn.Connect(self._hostName, self._portNum):
-            raise "Connection to EPMD failed"
+            raise ErlEpmdError("Connection to EPMD failed")
         self.Alive2Req(self._ownPortNum, NODETYPE_HIDDEN,
                        (5, 5), self._ownNodeName, "", self._Alive2RespCb)
 
@@ -331,7 +335,6 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         self._SendOneShotReq(msg, unpackcb)
 
     def StopReq(self, nodeName, callback):
-        raise "Not used"
         msg = self.PackInt1(self._STOP_REQ) + nodeName
         unpackcb = erl_common.Callback(self._UnpackStopResp, callback)
         self._SendOneShotReq(msg, unpackcb)
@@ -505,7 +508,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def _SendReq(self, req, cb):
         if not self._isConnected:
-            raise "not connected to epmd"
+            raise ErlEpmdError("not connected to epmd")
         self._NewCurrReq(ord(req[0]), cb)
         msg = self.PackInt2(len(req)) + req
         self.Send(msg)
