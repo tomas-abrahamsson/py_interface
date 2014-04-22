@@ -31,7 +31,7 @@ start([OtherNode]) ->
 		     -256,	% negative integer_ext
                      -16#7fffffff,% negative integer_ext
                      -16#80000000,% negative integer_ext
-		     1.1,	% float_ext
+		     1.125,	% float_ext
 		     atom_ext,	% atom_ext
 		     '',	% atom_ext
 		     make_ref(),% new_reference_ext (reference_ext)

@@ -48,6 +48,7 @@ import sys
 import math
 import types
 import string
+import struct
 import pickle
 import UserDict
 
@@ -514,6 +515,7 @@ MAGIC_NEW_CACHE = 78
 MAGIC_CACHED_ATOM = 67
 MAGIC_MAP = 116
 MAGIC_EXPORT = 113
+MAGIC_NEW_FLOAT = 70
 
 ###
 ### UNPACKING
@@ -595,6 +597,10 @@ def _UnpackOneTerm(data):
             floatStr = floatData
         f = string.atof(floatStr)
         return (ErlNumber(f), data[32:])
+
+    elif data0 == MAGIC_NEW_FLOAT:
+        (f,) = struct.unpack(">d", data[1:9])
+        return (ErlNumber(f), data[9:])
 
     elif data0 == MAGIC_ATOM:
         atomLen = _ReadInt2(data[1:3])
@@ -739,7 +745,7 @@ def _UnpackOneTerm(data):
         (function, remainingData3) = _UnpackOneTerm(remainingData2)
         (arity, remainingData4) = _UnpackOneTerm(remainingData3)
         return (ErlFunExport(module, function, arity), remainingData4)
-        
+
     elif data0 == MAGIC_MAP:
         arity = _ReadInt4(data[1:5])
         remainingData1 = data[5:]
@@ -902,10 +908,14 @@ def _PackLongBytes(term, numBytesNeeded):
         bignum = bignum >> 8
     return bignumBytes
 
-def _PackFloat(term):
+def _PackOldFloat(term):
     floatStr = "%.20e" % term
     nullPadStr = _PackInt1(0) * (31 - len(floatStr))
     return _PackInt1(MAGIC_FLOAT) + floatStr + nullPadStr
+
+def _PackFloat(term):
+    floatData = struct.pack(">d", term)
+    return _PackInt1(MAGIC_NEW_FLOAT) + floatData
 
 def _PackInt(term):
     if 0 <= term < 256:
