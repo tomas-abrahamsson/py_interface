@@ -63,6 +63,7 @@ hRef    = HMarker("ref")
 hPort   = HMarker("port")
 hPid    = HMarker("pid")
 hBinary = HMarker("binary")
+hBitBinary = HMarker("bit-binary")
 hFun    = HMarker("fun")
 hFunExport = HMarker("fun-export")
 hMapKey = HMarker("map-key")
@@ -232,7 +233,7 @@ class ErlBinary:
     contents = string
     """
     def __init__(self, contents):
-        self.contents = contents        #  a string
+        self.contents = contents
     def __repr__(self):
         return "<erl-binary: size=%d>" % len(self.contents)
     def equals(self, other):
@@ -246,6 +247,40 @@ class ErlBinary:
 def IsErlBinary(term):
     """Checks whether a term is an Erlang binary or not."""
     return type(term) == types.InstanceType and isinstance(term, ErlBinary)
+
+class ErlBitBinary:
+    """An Erlang bitstring: a possibly un-even number of octets
+    contents = string
+    numBitsInLastOctet = 1..8: the number of bits in the last octet of contents
+                               counting from the most significant bit
+    """
+    def __init__(self, contents, bits):
+        self.contents = contents
+        self.bits = bits
+    def __repr__(self):
+        return "<erl-bit-binary: size=%d octets + %d bits>" % \
+               (len(self.contents)-1, self.bits)
+    def equals(self, other):
+        return IsErlBitBinary(other) and self.eqContents(other)
+    def eqContents(self, other):
+        if len(self.contents) == 0 and len(other.contents) == 0:
+            return True
+        if len(self.contents) > 0 and len(other.contents) > 0:
+            lastBits1 = ord(self.contents[-1]) & 255 << (8-self.bits)
+            lastBits2 = ord(other.contents[-1]) & 255 << (8-other.bits)
+            return self.contents[0:-1] == other.contents[0:-1] and \
+                   lastBits1 == lastBits2
+        else:
+            return False
+    __eq__ = equals
+    def __ne__(self, other):
+        return not self.__eq__(other)
+    def __hash__(self):
+        return hash((hBitBinary, self.contents, self.bits))
+
+def IsErlBitBinary(term):
+    """Checks whether a term is an Erlang bit-binary or not."""
+    return type(term) == types.InstanceType and isinstance(term, ErlBitBinary)
 
 def ErlString(s):
     """An Erlang list. This maps to a python string."""
@@ -472,6 +507,7 @@ MAGIC_REFERENCE = 101
 MAGIC_PORT = 102
 MAGIC_PID = 103
 MAGIC_BINARY = 109
+MAGIC_BIT_BINARY = 77
 MAGIC_FUN = 117
 MAGIC_NEW_FUN = 112
 MAGIC_NEW_CACHE = 78
@@ -617,6 +653,12 @@ def _UnpackOneTerm(data):
         binlen = _ReadInt4(data[1:5])
         s = data[5:5 + binlen]
         return (ErlBinary(s), data[5 + binlen:])
+
+    elif data0 == MAGIC_BIT_BINARY:
+        binlen = _ReadInt4(data[1:5])
+        bits = _ReadInt1(data[5])
+        s = data[6:6 + binlen]
+        return (ErlBitBinary(s, bits), data[6 + binlen:])
 
     elif data0 == MAGIC_SMALL_BIG:
         n = _ReadInt1(data[1])
@@ -792,6 +834,8 @@ def _PackOneTerm(term):
         return _PackPid(term)
     elif IsErlBinary(term):
         return _PackBinary(term)
+    elif IsErlBitBinary(term):
+        return _PackBitBinary(term)
     elif IsErlFun(term):
         return _PackFun(term)
     elif IsErlFunExport(term):
@@ -912,6 +956,12 @@ def _PackPid(term):
 def _PackBinary(term):
     return _PackInt1(MAGIC_BINARY) + \
            _PackInt4(len(term.contents)) + \
+           term.contents
+
+def _PackBitBinary(term):
+    return _PackInt1(MAGIC_BIT_BINARY) + \
+           _PackInt4(len(term.contents)) + \
+           _PackInt1(term.bits) + \
            term.contents
 
 def _PackOldFun(term):

@@ -46,6 +46,7 @@ start([OtherNode]) ->
 				% fixme: make test for improper lists
 		     <<>>,	% binary_ext
 		     <<"abc">>,	% binary_ext
+		     <<1:2>>,	% bit_binary_ext
 		     2 bsl 33,	% small_big_ext
                      -16#80000001,% negative small_big_ext
 		     fun() -> ok end, % new_fun_ext

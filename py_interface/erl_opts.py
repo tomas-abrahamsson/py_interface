@@ -58,6 +58,7 @@ class ErlNodeOpts:
                              DISTR_FLAG_FUNTAGS|
                              DISTR_FLAG_NEWFUNTAGS|
                              DISTR_FLAG_EXPORTPTRTAG|
+                             DISTR_FLAG_BITBINARIES|
                              DISTR_FLAG_MAPTAG)
                  ):
         self._netTickTime = netTickTime
