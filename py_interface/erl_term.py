@@ -529,10 +529,7 @@ def BinaryToTerm(binary):
     Returns: term
     Throws:  "BinaryToTerm: Extraneous data in binary"
     """
-    try:
-        (term, remaining) = _UnpackOneTermTop(binary)
-    except:
-        raise "BinaryToTerm: Panic -- invalid binary received?"
+    (term, remaining) = _UnpackOneTermTop(binary)
     if len(remaining) != 0:
         raise "BinaryToTerm: Extraneous data in binary"
     return term
@@ -547,10 +544,7 @@ def BinariesToTerms(binary):
     Returns: list(term)
     Throws:  "BinaryToTerm: Extraneous data in binary"
     """
-    try:
-        (terms, remaining) = BufToTerm(binary)
-    except:
-        raise "BinariesToTerms: Panic -- invalid binary received?"
+    (terms, remaining) = BufToTerm(binary)
     if len(remaining) != 0:
         raise "BinariesToTerms: Extraneous data in binary"
     return terms
