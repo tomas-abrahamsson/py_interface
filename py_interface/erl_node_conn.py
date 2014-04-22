@@ -209,6 +209,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         self._nodeName = nodeName
         self._opts = opts
         self._peerName = None
+        self._peerFlags = 0xffffFFFF
         self._state = self._STATE_DISCONNECTED
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
@@ -277,7 +278,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             packet = "p" + erl_term.TermToBinary(ctrlMsg)
         else:
             packet = "p" + (erl_term.TermToBinary(ctrlMsg) + \
-                            erl_term.TermToBinary(msg))
+                            erl_term.TermToBinary(msg, self._peerFlags))
         self._SendPacket(packet)
 
 
@@ -581,6 +582,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         self._passThroughMsgCb = passThroughMsgCb
         self._state = self._STATE_HANDSHAKE_RECV_NAME
         self._peerName = nodeName
+        self._peerFlags = 0xffffFFFF
         # 2 bytes for the packet length during the handshake, then 4 bytes
         self._packetLenSize = 2         
         # These are started once the connection is up
@@ -609,7 +611,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             packet = "p" + erl_term.TermToBinary(ctrlMsg)
         else:
             packet = "p" + (erl_term.TermToBinary(ctrlMsg) + \
-                            erl_term.TermToBinary(msg))
+                            erl_term.TermToBinary(msg, self._peerFlags))
         self._SendPacket(packet)
 
 

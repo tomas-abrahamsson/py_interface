@@ -807,84 +807,86 @@ def _ReadSignedInt4(s):
 ### PACKING
 ###
 
-def TermToBinary(term):
+def TermToBinary(term, flags=0xffffFFFF):
     """Pack a term to a binary.
 
     TERM = term
+    FLAGS = flags, see distribution flags on
+            http://erlang.org/doc/apps/erts/erl_dist_protocol.html
 
     Returns: string
     Throws:  \"Can't pack value of type ...\"
     """
-    return chr(MAGIC_VERSION) + _PackOneTerm(term)
+    return chr(MAGIC_VERSION) + _PackOneTerm(term, flags)
 
-def _PackOneTerm(term):
+def _PackOneTerm(term, flags):
     if type(term) == types.StringType:
-        return _PackString(term)
+        return _PackString(term, flags)
     elif type(term) == types.ListType:
-        return _PackList(term)
+        return _PackList(term, flags)
     elif type(term) == types.TupleType:
-        return _PackTuple(term)
+        return _PackTuple(term, flags)
     elif type(term) == types.LongType:
-        return _PackLong(term)
+        return _PackLong(term, flags)
     elif type(term) == types.FloatType:
-        return _PackFloat(term)
+        return _PackFloat(term, flags)
     elif type(term) == types.IntType:
-        return _PackInt(term)
+        return _PackInt(term, flags)
     elif IsErlAtom(term):
-        return _PackAtom(term)
+        return _PackAtom(term, flags)
     elif IsErlRef(term):
-        return _PackRef(term)
+        return _PackRef(term, flags)
     elif IsErlPort(term):
-        return _PackPort(term)
+        return _PackPort(term, flags)
     elif IsErlPid(term):
-        return _PackPid(term)
+        return _PackPid(term, flags)
     elif IsErlBinary(term):
-        return _PackBinary(term)
+        return _PackBinary(term, flags)
     elif IsErlBitBinary(term):
-        return _PackBitBinary(term)
+        return _PackBitBinary(term, flags)
     elif IsErlFun(term):
-        return _PackFun(term)
+        return _PackFun(term, flags)
     elif IsErlFunExport(term):
-        return _PackFunExport(term)
+        return _PackFunExport(term, flags)
     elif IsErlMap(term):
-        return _PackMap(term)
+        return _PackMap(term, flags)
     else:
         print "Term=%s" % `term`
         raise "Can't pack value of type %s" % `type(term)`
 
     
-def _PackString(term):
+def _PackString(term, flags):
     if len(term) == 0:
         return _PackList([])
     elif len(term) <= 65535:
         return _PackInt1(MAGIC_STRING) + _PackInt2(len(term)) + term
     else:
-        return _PackList(map(lambda c: ord(c), term))
+        return _PackList(map(lambda c: ord(c), term), flags)
 
-def _PackList(term):
+def _PackList(term, flags):
     if len(term) == 0:
         return _PackInt1(MAGIC_NIL)
     else:
         packedData = ""
         for elem in term:
-            packedData = packedData + _PackOneTerm(elem)
+            packedData = packedData + _PackOneTerm(elem, flags)
         return _PackInt1(MAGIC_LIST) + _PackInt4(len(term)) + packedData + \
-               _PackList([])
+               _PackList([], flags)
 
-def _PackTuple(term):
+def _PackTuple(term, flags):
     if len(term) < 256:
         head = _PackInt1(MAGIC_SMALL_TUPLE) + _PackInt1(len(term))
     else:
         head = _PackInt1(MAGIC_LARGE_TUPLE) + _PackInt4(len(term))
     packedData = head
     for elem in term:
-        packedData = packedData + _PackOneTerm(elem)
+        packedData = packedData + _PackOneTerm(elem, flags)
     return packedData
 
 
-def _PackLong(term):
+def _PackLong(term, flags):
     if -long(0x7fffffff) - 1 <= term <= long(0x7fffffff):
-        return _PackInt(term)
+        return _PackInt(term, flags)
     else:
         numBytesNeeded = int(math.log(abs(term)) / math.log(256)) + 1
         if numBytesNeeded > 255:
@@ -908,33 +910,33 @@ def _PackLongBytes(term, numBytesNeeded):
         bignum = bignum >> 8
     return bignumBytes
 
-def _PackOldFloat(term):
+def _PackOldFloat(term, flags):
     floatStr = "%.20e" % term
     nullPadStr = _PackInt1(0) * (31 - len(floatStr))
     return _PackInt1(MAGIC_FLOAT) + floatStr + nullPadStr
 
-def _PackFloat(term):
+def _PackFloat(term, flags):
     floatData = struct.pack(">d", term)
     return _PackInt1(MAGIC_NEW_FLOAT) + floatData
 
-def _PackInt(term):
+def _PackInt(term, flags):
     if 0 <= term < 256:
         return _PackInt1(MAGIC_SMALL_INTEGER) + _PackInt1(term)
     else:
         return _PackInt1(MAGIC_INTEGER) + _PackInt4(term)
 
-def _PackAtom(term):
+def _PackAtom(term, flags):
     atomText = term.atomText
     return _PackInt1(MAGIC_ATOM) + _PackInt2(len(atomText)) + atomText
 
-def _PackRef(term):
+def _PackRef(term, flags):
     if type(term.id) == types.ListType:
-        return _PackNewReferenceExt(term)
+        return _PackNewReferenceExt(term, flags)
     else:
-        return _PackReferenceExt(term)
+        return _PackReferenceExt(term, flags)
 
-def _PackNewReferenceExt(term):
-    node = _PackOneTerm(term.node)
+def _PackNewReferenceExt(term, flags):
+    node = _PackOneTerm(term.node, flags)
     creation = _PackCreation(term.creation)
     id0 = _PackId(term.id[0])
     ids = id0
@@ -944,37 +946,37 @@ def _PackNewReferenceExt(term):
            _PackInt2(len(term.id)) + \
            node + creation + ids
 
-def _PackReferenceExt(term):
-    node = _PackOneTerm(term.node)
+def _PackReferenceExt(term, flags):
+    node = _PackOneTerm(term.node, flags)
     id = _PackId(term.id)
     creation = _PackCreation(term.creation)
     return _PackInt1(MAGIC_REFERENCE) + node + id + creation
 
-def _PackPort(term):
-    node = _PackOneTerm(term.node)
+def _PackPort(term, flags):
+    node = _PackOneTerm(term.node, flags)
     id = _PackId(term.id, 28)
     creation = _PackCreation(term.creation)
     return _PackInt1(MAGIC_PORT) + node + id + creation
 
-def _PackPid(term):
-    node = _PackOneTerm(term.node)
+def _PackPid(term, flags):
+    node = _PackOneTerm(term.node, flags)
     id = _PackId(term.id, 28)
     serial = _PackInt4(term.serial)
     creation = _PackCreation(term.creation)
     return _PackInt1(MAGIC_PID) + node + id + serial + creation
 
-def _PackBinary(term):
+def _PackBinary(term, flags):
     return _PackInt1(MAGIC_BINARY) + \
            _PackInt4(len(term.contents)) + \
            term.contents
 
-def _PackBitBinary(term):
+def _PackBitBinary(term, flags):
     return _PackInt1(MAGIC_BIT_BINARY) + \
            _PackInt4(len(term.contents)) + \
            _PackInt1(term.bits) + \
            term.contents
 
-def _PackOldFun(term):
+def _PackOldFun(term, flags):
     # FIXME: when to call this?
     numFreeVars = _PackInt4(len(term.freeVars))
     pid = _PackPid(term.pid)
@@ -983,37 +985,38 @@ def _PackOldFun(term):
     uniq = _PackInt(term.uniq)
     freeVars = ""
     for freeVar in term.freeVars:
-        freeVars = freeVars + _PackOneTerm(freeVar)
+        freeVars = freeVars + _PackOneTerm(freeVar, flags)
     return _PackInt1(MAGIC_FUN) + numFreeVars + \
            pid + module + index + uniq + freeVars
 
-def _PackFun(term):
+def _PackFun(term, flags):
     arity = _PackInt1(term.arity)
     uniq = term.uniq
     index = _PackInt4(term.index)
     numFree = _PackInt4(len(term.freeVars))
-    module = _PackOneTerm(term.module)
+    module = _PackOneTerm(term.module, flags)
     # oldIndex and oldUniq must be SMALL_INTEGER_EXT or INTEGER_EXT
     # FIXME: should either somehow force them to be that,
     # or verify/assert that they end up being that
-    oldIndex = _PackOneTerm(term.oldIndex)
-    oldUniq = _PackOneTerm(term.oldUniq)
-    pid = _PackOneTerm(term.pid)
-    freeVars = "".join([_PackOneTerm(x) for x in term.freeVars])
+    oldIndex = _PackOneTerm(term.oldIndex, flags)
+    oldUniq = _PackOneTerm(term.oldUniq, flags)
+    pid = _PackOneTerm(term.pid, flags)
+    freeVars = "".join([_PackOneTerm(x, flags) for x in term.freeVars])
     info = arity + uniq + index + numFree + \
            module + oldIndex + oldUniq + pid + freeVars
     size = _PackInt4(4 + len(info)) # size includes the size field
     return _PackInt1(MAGIC_NEW_FUN) + size + info
 
-def _PackFunExport(term):
-    module = _PackOneTerm(term.module)
-    function = _PackOneTerm(term.function)
-    arity = _PackOneTerm(term.arity)
+def _PackFunExport(term, flags):
+    module = _PackOneTerm(term.module, flags)
+    function = _PackOneTerm(term.function, flags)
+    arity = _PackOneTerm(term.arity, flags)
     return _PackInt1(MAGIC_EXPORT) + module + function + arity
 
-def _PackMap(term):
+def _PackMap(term, flags):
     arity = _PackInt4(len(term))
-    pairs = [_PackOneTerm(k) + _PackOneTerm(v) for (k,v) in term.iteritems()]
+    pairs = [_PackOneTerm(k, flags) + _PackOneTerm(v, flags) \
+             for (k,v) in term.iteritems()]
     return _PackInt1(MAGIC_MAP) + arity + "".join(pairs)
 
 def _PackId(i, maxSignificantBits=18):
