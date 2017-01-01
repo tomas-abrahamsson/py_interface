@@ -4,12 +4,25 @@ ERLC=@ERLC@
 SHELL=/bin/sh
 
 HAVE_MAPS:=@HAVE_MAPS@
+HAVE_ERTS7_TIME_API:=@HAVE_ERTS7_TIME_API@
 HAVE_EQC:=@HAVE_EQC@
 HAVE_PROPER:=@HAVE_PROPER@
 
+ERLC_FLAGS += -Wall +debug_info
+
+ERL_BATCH_FLAGS = +B -noshell -noinput
+
+# For easier development (assuming recent versions of Erlang):
+# Invert flags (eg NO_HAVE_MAPS rather than HAVE_MAPS), so
+# we can write -ifndef(NO_...). ... -endif...
+# This is so that when compiling in emacs, code for new features gets compiled
+# by default, so we won't have to add compilation flags by default.
 erlc_feature_flags =
-ifeq ($(HAVE_MAPS),yes)
-	erlc_feature_flags += -DHAVE_MAPS
+ifeq ($(HAVE_MAPS),no)
+	erlc_feature_flags += -DNO_HAVE_MAPS
+endif
+ifeq ($(HAVE_ERTS7_TIME_API),no)
+	erlc_feature_flags += -DNO_HAVE_ERTS7_TIME_API
 endif
 
 ifeq ($(HAVE_EQC),yes)
@@ -22,18 +35,50 @@ ifeq ($(HAVE_PROPER),yes)
 endif
 endif
 
-ERLS = test_erl_node_pingpong.erl
+ERLS =	pingpong_master_tests.erl \
+	py_node_mgr.erl
 ifeq ($(HAVE_QC),yes)
-	ERLS += test_erl_node_pingpong_qc.erl
+	ERLS += qc_pingpong_master_tests.erl
 endif
 
-BEAMS = $(patsubst %.erl,%.beam,$(ERLS))
+## Check verbosity
+ifdef VERBOSE
+verbose_opt := verbose
+silencer    :=
+else
+verbose  :=
+silencer := @
+endif
+
+TEST_MODULES := \
+	$(filter %_tests,$(patsubst %.erl,%,$(ERLS)))
+
+SUPPORT_MODULES := \
+	$(filter-out $(TEST_MODULES),$(patsubst %.erl,%,$(ERLS)))
+
+BEAMS = $(patsubst %,%.beam,$(TEST_MODULES) $(SUPPORT_MODULES))
+
+EUNIT_MODULES = $(TEST_MODULES)
+
+empty_str :=
+space := $(empty_str) $(empty_str)
+comma := ,
 
 all: $(BEAMS)
 
 test: all
-	./run_test_erl_node_pingpong.sh
-	if [ x"$(HAVE_QC)" = xyes ]; then ./run_test_erl_node_pingpong_qc.sh; fi
+	@echo Testing...
+	$(silencer)$(ERL) $(ERL_BATCH_FLAGS) -pa `pwd` \
+            -name pingpong_master-$$$$@127.0.0.1 \
+            -eval " \
+	    case eunit:test([$(subst $(space),$(comma),$(EUNIT_MODULES))], \
+			    [$(verbose_opt)]) of \
+		ok -> halt(0); \
+		_  -> halt(1) \
+	    end."
 
 %.beam: %.erl
-	$(ERLC) $(erlc_feature_flags) -Wall $<
+	$(ERLC) $(ERLC_FLAGS) $(erlc_feature_flags) $<
+
+clean:
+	$(RM) *.beam erl_crash.dump

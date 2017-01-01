@@ -42,11 +42,12 @@ EXAMPLEPROGRAMS = examples/test_erl_epmd.py \
                   examples/run_remote_exec_wrapper.sh \
                   examples/test_remote_exec.py
 
-TESTPROGRAMS = test/test_erl_node_pingpong.py \
-               test/test_erl_node_pingpong.erl \
-               test/run_test_erl_node_pingpong.sh \
-               test/run_test_erl_node_pingpong_qc.sh \
-               test/test_erl_node_pingpong_qc.erl \
+TESTPROGRAMS = test/pingpong_master_tests.erl \
+               test/py_node_mgr.erl \
+               test/pingpong_slave.py \
+               test/out_connecting.py \
+               test/rpc_caller.py \
+               test/qc_pingpong_master_tests.erl \
 	       test/Makefile.in
 
 
@@ -109,6 +110,7 @@ clean:
 	$(RM) py_interface/__init__.py setup.py PKG-INFO
 	find . -name \*.pyc -print0 | xargs -0 --no-run-if-empty $(RM)
 	find . -name \*.pyo -print0 | xargs -0 --no-run-if-empty $(RM)
+	$(MAKE) -C test $@
 
 distclean: clean
 	-$(RM) *~ *.tar.gz

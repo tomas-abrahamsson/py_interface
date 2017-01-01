@@ -11,8 +11,9 @@ AC_CHECK_PROGS(ERLC, erlc)
 silent_erl_flags="+B -noinput -sasl errlog_type error"
 
 AC_MSG_CHECKING([whether Erlang supports maps])
-if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} -eval '#{a=>1},halt(0)' \
-   			     >/dev/null 2>&1)
+if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
+   -eval '#{a=>1},halt(0).' \
+   >/dev/null 2>&1)
 then
 	HAVE_MAPS=yes
 else
@@ -20,6 +21,20 @@ else
 fi
 AC_MSG_RESULT($HAVE_MAPS)
 AC_SUBST(HAVE_MAPS)
+
+AC_MSG_CHECKING([whether Erlang has erts7 time api])
+if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
+   -eval 'try erlang:monotonic_time(), halt(0)
+          catch error:undef -> halt(1)
+          end.' \
+   >/dev/null 2>&1)
+then
+	HAVE_ERTS7_TIME_API=yes
+else
+	HAVE_ERTS7_TIME_API=no
+fi
+AC_MSG_RESULT($HAVE_ERTS7_TIME_API)
+AC_SUBST(HAVE_ERTS7_TIME_API)
 
 AC_MSG_CHECKING([for eqc])
 if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
