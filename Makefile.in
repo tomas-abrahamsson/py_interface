@@ -100,17 +100,19 @@ TAGS: $(SOURCES)
 	cd $(srcdir) && etags $(SOURCES)
 
 clean:
-	rm -f $(OBJECTS)
-	-rm -f *.aux *.cp *.cps *.fn *.ky *.log *.pg *.toc *.tp *.vr
-	-rm -f *.html
-	rm -f TAGS
-	rm -f erl_crash.dump
-	rm -f *.beam
-	rm -f py_interface/__init__.py setup.py PKG-INFO
+	$(RM) $(OBJECTS)
+	-$(RM) *.aux *.cp *.cps *.fn *.ky *.log *.pg *.toc *.tp *.vr
+	-$(RM) *.html
+	$(RM) TAGS
+	$(RM) erl_crash.dump
+	$(RM) *.beam
+	$(RM) py_interface/__init__.py setup.py PKG-INFO
+	find . -name \*.pyc -print0 | xargs -0 --no-run-if-empty $(RM)
+	find . -name \*.pyo -print0 | xargs -0 --no-run-if-empty $(RM)
 
 distclean: clean
-	-rm -f *~ *.tar.gz
-	rm -f Makefile config.status config.cache config.log
+	-$(RM) *~ *.tar.gz
+	$(RM) Makefile config.status config.cache config.log
 
 ${srcdir}/configure: configure.in
 	cd ${srcdir} && autoconf
