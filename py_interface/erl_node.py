@@ -397,6 +397,7 @@ class ErlNode:
                                            self._PassThroughMsg)
         self._epmd.SetOwnPortNum(self._portNum)
         self._epmd.SetOwnNodeName(self._nodeName)
+        self._epmdConnectedOkCb = erl_common.Callback(self._Sink)
         self._CreateRex()
 
     def CreateMBox(self, msgCallback=None):
@@ -689,6 +690,14 @@ class ErlNode:
                 self._SendMsgToRemoteNode("pong",
                                           sourcePid, destNode, destPid, msg)
 
+    def SetEpmdConnectedOkCb(self, cb):
+        """Set a CALLBACK to be called after the Publish method has completed
+        successfully, ie when the response from the epmd has been processed.
+        This makes it possible to deterministically run things immediately
+        after the node has connected and published to the epmd.
+        """
+        self._epmdConnectedOkCb = cb
+
     ##
     ## Internal routines
     ##
@@ -719,6 +728,7 @@ class ErlNode:
         completed."""
         self._isServerPublished = 1
         self._creation = creation
+        self._epmdConnectedOkCb()
 
     def _EpmdConnectFailed(self, errorResult):
         raise ErlNodeConnectionFailedError(errorResult)
@@ -914,3 +924,6 @@ class ErlNode:
             if existingPid.equals(newPid):
                 return existingPid
         return newPid
+
+    def _Sink(self, *args, **kw):
+        pass
