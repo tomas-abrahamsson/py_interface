@@ -847,6 +847,8 @@ def _PackOneTerm(term, flags):
         return _PackFun(term, flags)
     elif IsErlFunExport(term):
         return _PackFunExport(term, flags)
+    elif IsErlImproperList(term):
+        return _PackImproperList(term, flags)
     elif IsErlMap(term):
         return _PackMap(term, flags)
     else:
@@ -871,6 +873,14 @@ def _PackList(term, flags):
             packedData = packedData + _PackOneTerm(elem, flags)
         return _PackInt1(MAGIC_LIST) + _PackInt4(len(term)) + packedData + \
                _PackList([], flags)
+
+def _PackImproperList(term, flags):
+    packedData = b""
+    for elem in term.elements:
+        packedData = packedData + _PackOneTerm(elem, flags)
+    return _PackInt1(MAGIC_LIST) + _PackInt4(len(term.elements)) + \
+        packedData + \
+        _PackOneTerm(term.tail, flags)
 
 def _PackTuple(term, flags):
     if len(term) < 256:

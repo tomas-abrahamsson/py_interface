@@ -104,7 +104,7 @@ t_term2() ->
            binary(),
            bitstring(),
            t_fun(),
-           %% improper list
+           t_improper_list(),
            t_port()]).
 
 n_sint(Base) ->
@@ -147,3 +147,6 @@ t_fun() ->
 
 dummy() ->
     ok.
+
+t_improper_list() ->
+    ?LET({E1,E2}, {t_atom(), t_atom()}, [E1|E2]).

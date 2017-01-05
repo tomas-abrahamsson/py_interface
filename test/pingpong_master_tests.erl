@@ -81,6 +81,9 @@ string_test_() ->
 list_test_() ->
     ?pp(pingpong_terms([[1,2,3]])).
 
+improper_list_test_() ->
+    ?pp(pingpong_terms([[a|b]])).
+
 binary_test_() ->
     ?pp(pingpong_terms([<<>>, <<"abc">>])).
 
