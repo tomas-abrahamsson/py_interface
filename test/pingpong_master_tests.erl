@@ -115,6 +115,11 @@ map_with_pymutable_obj_as_key_test_() ->
                         #{[1,2] => a}, #{"abc" => [1,2]},
                         %% an ErlMapKey() object:
                         #{make_ref() => 0}])).
+'map_key_difference_==_vs_=:=_preserved_test_'() ->
+    Map = #{0.0 => 1,
+            0   => 2},
+    2 = maps:size(Map),
+    ?pp(pingpong_terms([Map])).
 -endif. % NO_HAVE_MAPS
 
 large_tuple_test_() -> % >255 elements

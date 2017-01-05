@@ -105,7 +105,8 @@ t_term2() ->
            bitstring(),
            t_fun(),
            t_improper_list(),
-           t_port()]).
+           t_port(),
+           t_map()]).
 
 n_sint(Base) ->
     oneof([n_uint(Base), ?LET(X, n_uint(Base), -X)]).
@@ -150,3 +151,14 @@ dummy() ->
 
 t_improper_list() ->
     ?LET({E1,E2}, {t_atom(), t_atom()}, [E1|E2]).
+
+-ifndef(NO_HAVE_MAPS).
+t_map() ->
+    ?LET(NumElems, n_uint(2),
+         ?LET({Keys, Values}, {vector(NumElems, t_term2()),
+                               vector(NumElems, t_term2())},
+              maps:from_list(lists:zip(Keys, Values)))).
+-else. % NO_HAVE_MAPS
+t_map() ->
+    t_atom(). % whatever
+-endif. % NO_HAVE_MAPS

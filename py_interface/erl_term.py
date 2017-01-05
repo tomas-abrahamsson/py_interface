@@ -393,11 +393,18 @@ def IsErlFunExport(term):
 ## which is a desirable property for keys, but does not hold for cPickle.
 
 def MakeErlMapKey(term):
-    try:
-        hash(term)
-        return term
-    except TypeError, x:
+    # Separate handling of floats to support that in Erlang, map keys
+    # for floats and integers are different, but not so in Python.
+    # We could do that for integers too, but need need not, and things
+    # might go a little faster faster doing it only for floats.
+    if type(term) == types.FloatType:
         return ErlMapKey(term)
+    else:
+        try:
+            hash(term)
+            return term
+        except TypeError as x:
+            return ErlMapKey(term)
 
 def UnmakeErlMapKey(k):
     if IsErlMapKey(k):
