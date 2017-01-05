@@ -1,4 +1,15 @@
+version 2.0
+
+	* Python 3 support (only). Dropped support for Python 2.
+          (The changes to the packing and unpacking code, mostly,
+          were too pervasive, to support both Python 2 an 3
+          in the same code base.)
+
 version 1.4, 2017-Jan-07
+
+NB: This is the last version with support for Python 2
+    From 2.0, it is Python 3. Bugfixes might go in 1.4.x, if important enough,
+    but any new development is intended for Python 3 only.
 
         * Bugfix packing of improper lists on the Python side
         * In the ErlMap type, which is a dict, make ints and floats,
