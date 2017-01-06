@@ -139,5 +139,5 @@ dist: $(DISTFILES)
 	$(rm) -rf $$distname
 
 .PHONY: test
-test:
-	$(MAKE) -C test test
+test: all
+	$(MAKE) -C test $@
