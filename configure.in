@@ -46,7 +46,7 @@ AC_MSG_CHECKING([for proper])
 if (ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
    -eval \
    'case catch code:which(proper) of
-   	 PATH when is_list(Path) -> halt(0);
+   	 Path when is_list(Path) -> halt(0);
 	 _ -> halt(1)
     end.' \
    >/dev/null 2>&1)
@@ -55,7 +55,7 @@ then
 	HAVE_PROPER=yes
 	proper_loc=`ERL_CRASH_DUMP_SECONDS=0 ${ERL} ${silent_erl_flags} \
 	      -eval \
-	      'io:format("~s~n",[[code:which(proper)]]]),halt().'`
+	      'io:format("~s~n",[[code:which(proper)]]),halt().'`
 else
 	HAVE_PROPER=no
 	proper_loc=no
