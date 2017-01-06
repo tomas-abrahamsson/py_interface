@@ -50,7 +50,9 @@ import types
 import string
 import struct
 import pickle
-import UserDict
+
+from collections import UserDict
+from collections import MutableMapping as DictMixin
 
 from py_interface import erl_common
 from py_interface import erl_opts
@@ -83,19 +85,26 @@ class ErlAtom:
     atomText = string
     """
     def __init__(self, atomText, cache=-1):
+        if type(atomText) == bytes:
+            atomText = atomText.decode("latin1")
+        if type(atomText) == str:
+            for c in atomText:
+                if ord(c) > 255:
+                    raise(ErlTermError("Non-latin1 chars in atom: %s" %
+                                       repr(atomText)))
         global _atom_cache
         if atomText == None and cache != -1:
-            if _atom_cache.has_key(cache):
+            if cache in _atom_cache:
                 self.atomText = _atom_cache[cache]
             else:
-                raise ErlTermError("No such cached atom: %s" % `cache`)
+                raise ErlTermError("No such cached atom: %s" % repr(cache))
         elif atomText != None and cache != -1:
             self.atomText = atomText
             _atom_cache[cache] = atomText
         else:
             self.atomText = atomText
     def __repr__(self):
-        return "<erl-atom: %s>" % `self.atomText`
+        return "<erl-atom: %s>" % repr(self.atomText)
     def equals(self, other):
         return IsErlAtom(other) and self.atomText == other.atomText
     __eq__ = equals
@@ -108,7 +117,7 @@ class ErlAtom:
 
 def IsErlAtom(term):
     """Checks whether a term is an Erlang atom or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlAtom)
+    return isinstance(term, ErlAtom)
 
 
 class ErlRef:
@@ -123,7 +132,7 @@ class ErlRef:
         self.creation = creation
     def __repr__(self):
         return "<erl-ref: node=%s, id=%s, creation=%d>" % \
-               (`self.node`, `self.id`, self.creation)
+               (repr(self.node), repr(self.id), self.creation)
     def equals(self, other):
         return IsErlRef(other) and \
             self.node.equals(other.node) and \
@@ -137,7 +146,7 @@ class ErlRef:
 
 def IsErlRef(term):
     """Checks whether a term is an Erlang reference or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlRef)
+    return isinstance(term, ErlRef)
 
 class ErlPort:
     """An Erlang port. The following attributes are defined:
@@ -151,7 +160,7 @@ class ErlPort:
         self.creation = creation
     def __repr__(self):
         return "<erl-port: node=%s, id=%d, creation=%d>" % \
-               (`self.node`, self.id, self.creation)
+               (repr(self.node), self.id, self.creation)
     def equals(self, other):
         return IsErlPort(other) and \
             self.node.equals(other.node) and \
@@ -165,7 +174,7 @@ class ErlPort:
 
 def IsErlPort(term):
     """Checks whether a term is an Erlang reference or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlPort)
+    return isinstance(term, ErlPort)
 
 class ErlPid:
     """An Erlang process id. The following attributes are defined:
@@ -181,7 +190,7 @@ class ErlPid:
         self.creation = creation
     def __repr__(self):
         return "<erl-pid: node=%s, id=%d, serial=%d, creation=%d>" % \
-               (`self.node`, self.id, self.serial, self.creation)
+               (repr(self.node), self.id, self.serial, self.creation)
     def equals(self, other):
         return IsErlPid(other) and \
             self.node.equals(other.node) and \
@@ -196,7 +205,7 @@ class ErlPid:
 
 def IsErlPid(term):
     """Checks whether a term is an Erlang process id or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlPid)
+    return isinstance(term, ErlPid)
 
 def ErlTuple(elementsAsList):
     """An Erlang tuple. This maps to a python tuple."""
@@ -216,7 +225,8 @@ class ErlImproperList:
         # if true, we include tail element in iterations on this list
         self.iterOnTail = useTail
     def __repr__(self):
-        return "<erl-improper-list: head=%s, tail=%s>" % (`self.elements`,`self.tail`)
+        return ("<erl-improper-list: head=%s, tail=%s>" %
+                (repr(self.elements),repr(self.tail)))
     def equals(self,other):
         return IsErlImproperList(other) and \
             self.elements==other.elements and self.tail==other.tail
@@ -232,11 +242,11 @@ class ErlImproperList:
             raise IndexError
 
 def IsErlImproperList(term):
-    return type(term)== types.InstanceType and isinstance(term, ErlImproperList)
+    return isinstance(term, ErlImproperList)
 
 class ErlBinary:
     """An Erlang binary. The following attributes are defined:
-    contents = string
+    contents = bytes
     """
     def __init__(self, contents):
         self.contents = contents
@@ -252,11 +262,11 @@ class ErlBinary:
 
 def IsErlBinary(term):
     """Checks whether a term is an Erlang binary or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlBinary)
+    return isinstance(term, ErlBinary)
 
 class ErlBitBinary:
     """An Erlang bitstring: a possibly un-even number of octets
-    contents = string
+    contents = bytes
     numBitsInLastOctet = 1..8: the number of bits in the last octet of contents
                                counting from the most significant bit
     """
@@ -272,8 +282,8 @@ class ErlBitBinary:
         if len(self.contents) == 0 and len(other.contents) == 0:
             return True
         if len(self.contents) > 0 and len(other.contents) > 0:
-            lastBits1 = ord(self.contents[-1]) & 255 << (8-self.bits)
-            lastBits2 = ord(other.contents[-1]) & 255 << (8-other.bits)
+            lastBits1 = self.contents[-1] & 255 << (8-self.bits)
+            lastBits2 = other.contents[-1] & 255 << (8-other.bits)
             return self.contents[0:-1] == other.contents[0:-1] and \
                    lastBits1 == lastBits2
         else:
@@ -286,7 +296,7 @@ class ErlBitBinary:
 
 def IsErlBitBinary(term):
     """Checks whether a term is an Erlang bit-binary or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlBitBinary)
+    return isinstance(term, ErlBitBinary)
 
 def ErlString(s):
     """An Erlang list. This maps to a python string."""
@@ -316,8 +326,8 @@ class ErlFun:
     def __repr__(self):
         return ("<erl-fun: pid=%s, module=%s, index=%d, uniq=%s, " +
                 "oldIndex=%d, oldUniq=%d, arity=%d, freeVars=%s>") % \
-               (`self.pid`, `self.module`, self.index, `self.uniq`,
-                self.oldIndex, self.oldUniq, self.arity, `self.freeVars`)
+               (repr(self.pid), repr(self.module), self.index, repr(self.uniq),
+                self.oldIndex, self.oldUniq, self.arity, repr(self.freeVars))
     def equals(self, other):
         return IsErlFun(other) and \
             self.pid.equals(other.pid) and \
@@ -340,7 +350,7 @@ class ErlFun:
 
 def IsErlFun(term):
     """Checks whether a term is an Erlang function or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlFun)
+    return isinstance(term, ErlFun)
 
 class ErlFunExport:
     """An Erlang fun M:F/A. The following attributes are defined:
@@ -354,7 +364,7 @@ class ErlFunExport:
         self.arity = arity
     def __repr__(self):
         return "<erl-export: module=%s, function=%s, arity=%d>" % \
-               (`self.module`, `self.function`, self.arity)
+               (repr(self.module), repr(self.function), self.arity)
     def equals(self, other):
         return IsErlFunExport(other) and \
                self.module == other.module and \
@@ -368,7 +378,7 @@ class ErlFunExport:
 
 def IsErlFunExport(term):
     """Checks whether a term is an Erlang function export or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlFunExport)
+    return isinstance(term, ErlFunExport)
 
 ## About the Erlang map type vs Python Dict:
 ##
@@ -397,7 +407,7 @@ def MakeErlMapKey(term):
     # for floats and integers are different, but not so in Python.
     # We could do that for integers too, but need need not, and things
     # might go a little faster faster doing it only for floats.
-    if type(term) == types.FloatType:
+    if type(term) == float:
         return ErlMapKey(term)
     else:
         try:
@@ -426,14 +436,14 @@ class ErlMapKey:
     def __ne__(self, other):
         return not self.__eq__(other)
     def __repr__(self):
-        return repr(self.e)
+        return "<erlmapkey:" + repr(self.e) + ">"
     def GetElem(self):
         return self.e
 
 def IsErlMapKey(x):
-    return type(x) == types.InstanceType and isinstance(x, ErlMapKey)
+    return isinstance(x, ErlMapKey)
 
-class ErlMap(UserDict.DictMixin):
+class ErlMap(DictMixin):
     def __init__(self, dict=None, **kwargs):
         # fixme: handle extra and kv
         self.d = {}
@@ -448,11 +458,16 @@ class ErlMap(UserDict.DictMixin):
     def __delitem__(self, key):
         del self.d[MakeErlMapKey(key)]
     def keys(self):
-        return [UnmakeErlMapKey(x) for x in self.d.keys()]
+        return [UnmakeErlMapKey(x) for x in list(self.d.keys())]
+    def __iter__(self):
+        for item in self.d:
+            yield UnmakeErlMapKey(item)
+    def __len__(self):
+        return len(self.d)
     def __eq__(self, other):
         if IsErlMap(other):
-            ks1 = self.d.keys()
-            ks2 = other.d.keys()
+            ks1 = list(self.d.keys())
+            ks2 = list(other.d.keys())
             if len(ks1) != len(ks2):
                 return False
             for k in ks1:
@@ -473,8 +488,8 @@ class ErlMap(UserDict.DictMixin):
         if other is None:
             return 1
         if IsErlMap(other):
-            ks1 = self.d.keys()
-            ks2 = other.d.keys()
+            ks1 = list(self.d.keys())
+            ks2 = list(other.d.keys())
             if len(ks1) < len(ks2): return -1
             if len(ks1) > len(ks2): return 1
             if len(ks1) == len(ks2) == 0: return 0
@@ -498,7 +513,7 @@ class ErlMap(UserDict.DictMixin):
 
 def IsErlMap(term):
     """Checks whether a term is an Erlang function or not."""
-    return type(term) == types.InstanceType and isinstance(term, ErlMap)
+    return isinstance(term, ErlMap)
 
 ###
 ### MAGIC tags used in packing/unpacking. See erl_ext_dist.txt
@@ -542,7 +557,8 @@ def BinaryToTerm(binary):
     """
     (term, remaining) = _UnpackOneTermTop(binary)
     if len(remaining) != 0:
-        raise ErlTermError("BinaryToTerm: Extraneous data in binary")
+        raise ErlTermError("BinaryToTerm: Extraneous data in binary: %s" %
+                           repr(remaining))
     return term
 
 def BinariesToTerms(binary):
@@ -557,13 +573,14 @@ def BinariesToTerms(binary):
     """
     (terms, remaining) = BufToTerm(binary)
     if len(remaining) != 0:
-        raise ErlTermError("BinariesToTerms: Extraneous data in binary")
+        raise ErlTermError("BinariesToTerms: Extraneous data in binary: %s" %
+                           repr(remaining))
     return terms
 
 def BufToTerm(data):
     unpackedTerms = []
     inputData = data
-    while 1:
+    while True:
         (unpackedTerm, remainingData) = _UnpackOneTermTop(inputData)
         if unpackedTerm == None:
             return (unpackedTerms, remainingData)
@@ -573,7 +590,7 @@ def BufToTerm(data):
 def _UnpackOneTermTop(data):
     if len(data) == 0:
         return (None, data)
-    if data[0] != chr(MAGIC_VERSION):
+    if data[0] != MAGIC_VERSION:
         return (None, data)
     return _UnpackOneTerm(data[1:])
 
@@ -584,7 +601,7 @@ def _UnpackOneTerm(data):
     if len(data) == 0:
         return (None, data)
 
-    data0 = ord(data[0])
+    data0 = data[0]
 
     if data0 == MAGIC_SMALL_INTEGER:
         n = _ReadInt1(data[1])
@@ -597,11 +614,11 @@ def _UnpackOneTerm(data):
     elif data0 == MAGIC_FLOAT:
         floatData = data[1:32]
         try:
-            nullIndex = string.index(floatData, chr(0))
+            nullIndex = floatData.index(chr(0))
             floatStr = floatData[0:nullIndex]
         except ValueError:
             floatStr = floatData
-        f = string.atof(floatStr)
+        f = float(floatStr)
         return (ErlNumber(f), data[32:])
 
     elif data0 == MAGIC_NEW_FLOAT:
@@ -657,7 +674,7 @@ def _UnpackOneTerm(data):
         # now get the list tail (usually this is [] but
         # for not well formed lists it may be any term).
         (tail, newRemainingData) = _UnpackOneTerm(remainingData)
-        if tail <> []:
+        if tail != []:
             return (ErlImproperList(elements,tail), newRemainingData)
         return (ErlList(elements), newRemainingData)
 
@@ -675,23 +692,23 @@ def _UnpackOneTerm(data):
     elif data0 == MAGIC_SMALL_BIG:
         n = _ReadInt1(data[1])
         sign = _ReadInt1(data[2])
-        bignum = 0L
+        bignum = 0
         for i in range(n):
             d = _ReadInt1(data[3 + n - i - 1])
-            bignum = bignum * 256L + long(d)
+            bignum = bignum * 256 + int(d)
         if sign:
-            bignum = bignum * -1L
+            bignum = bignum * -1
         return (ErlNumber(bignum), data[3 + n:])
 
     elif data0 == MAGIC_LARGE_BIG:
         n = _ReadInt4(data[1:5])
         sign = _ReadInt1(data[5])
-        bignum = 0L
+        bignum = 0
         for i in range(n):
             d = _ReadInt1(data[6 + n - i - 1])
-            bignum = bignum * 256L + long(d)
+            bignum = bignum * 256 + int(d)
         if sign:
-            bignum = bignum * -1L
+            bignum = bignum * -1
         return (ErlNumber(bignum), data[6 + n:])
 
     elif data0 == MAGIC_NEW_CACHE:
@@ -762,7 +779,7 @@ def _UnpackOneTerm(data):
         return (m, remainingData2)
 
     else:
-        print "Bad tag %s" % `data0`
+        print("Bad tag %s" % repr(data0))
 
 
     return (None, data)
@@ -823,20 +840,22 @@ def TermToBinary(term, flags=0xffffFFFF):
     Returns: string
     Throws:  \"Can't pack value of type ...\"
     """
-    return chr(MAGIC_VERSION) + _PackOneTerm(term, flags)
+    return bytes([MAGIC_VERSION]) + _PackOneTerm(term, flags)
 
 def _PackOneTerm(term, flags):
-    if type(term) == types.StringType:
+    if type(term) == bytes:
+        return _PackBytes(term, flags)
+    if type(term) == str:
         return _PackString(term, flags)
-    elif type(term) == types.ListType:
+    elif type(term) == list:
         return _PackList(term, flags)
-    elif type(term) == types.TupleType:
+    elif type(term) == tuple:
         return _PackTuple(term, flags)
-    elif type(term) == types.LongType:
+    elif type(term) == int:
         return _PackLong(term, flags)
-    elif type(term) == types.FloatType:
+    elif type(term) == float:
         return _PackFloat(term, flags)
-    elif type(term) == types.IntType:
+    elif type(term) == int:
         return _PackInt(term, flags)
     elif IsErlAtom(term):
         return _PackAtom(term, flags)
@@ -860,22 +879,38 @@ def _PackOneTerm(term, flags):
         return _PackMap(term, flags)
     else:
         raise ErlTermError("Can't pack value of type %s: %s" %
-                           (`type(term)`, `term`))
+                           (repr(type(term)), repr(term)))
 
-
-def _PackString(term, flags):
+def _PackBytes(term, flags):
     if len(term) == 0:
         return _PackList([])
     elif len(term) <= 65535:
         return _PackInt1(MAGIC_STRING) + _PackInt2(len(term)) + term
     else:
-        return _PackList(map(lambda c: ord(c), term), flags)
+        return _PackList([c for c in term], flags)
+
+def _PackString(term, flags):
+    if len(term) == 0:
+        return _PackList([])
+    elif len(term) <= 65535:
+        allCharsByteRepresentable = True
+        for c in term:
+            if ord(c) > 255:
+                allCharsByteRepresentable = False
+                break
+        if allCharsByteRepresentable:
+            b = bytes(term, "latin1")
+            return _PackInt1(MAGIC_STRING) + _PackInt2(len(term)) + b
+        else:
+            return _PackList([ord(c) for c in term], flags)
+    else:
+        return _PackList([ord(c) for c in term], flags)
 
 def _PackList(term, flags):
     if len(term) == 0:
         return _PackInt1(MAGIC_NIL)
     else:
-        packedData = ""
+        packedData = b""
         for elem in term:
             packedData = packedData + _PackOneTerm(elem, flags)
         return _PackInt1(MAGIC_LIST) + _PackInt4(len(term)) + packedData + \
@@ -901,7 +936,7 @@ def _PackTuple(term, flags):
 
 
 def _PackLong(term, flags):
-    if -long(0x7fffffff) - 1 <= term <= long(0x7fffffff):
+    if -int(0x7fffffff) - 1 <= term <= int(0x7fffffff):
         return _PackInt(term, flags)
     else:
         numBytesNeeded = int(math.log(abs(term)) / math.log(256)) + 1
@@ -942,11 +977,11 @@ def _PackInt(term, flags):
         return _PackInt1(MAGIC_INTEGER) + _PackInt4(term)
 
 def _PackAtom(term, flags):
-    atomText = term.atomText
+    atomText = bytes(term.atomText, "latin1")
     return _PackInt1(MAGIC_ATOM) + _PackInt2(len(atomText)) + atomText
 
 def _PackRef(term, flags):
-    if type(term.id) == types.ListType:
+    if type(term.id) == list:
         return _PackNewReferenceExt(term, flags)
     else:
         return _PackReferenceExt(term, flags)
@@ -994,7 +1029,7 @@ def _PackBitBinary(term, flags):
 
 def _PackFun(term, flags):
     if flags & erl_opts.DISTR_FLAG_NEWFUNTAGS and \
-       type(term.uniq) == types.StringType:
+       type(term.uniq) == bytes:
         arity = _PackInt1(term.arity)
         uniq = term.uniq
         index = _PackInt4(term.index)
@@ -1006,7 +1041,7 @@ def _PackFun(term, flags):
         oldIndex = _PackOneTerm(term.oldIndex, flags)
         oldUniq = _PackOneTerm(term.oldUniq, flags)
         pid = _PackOneTerm(term.pid, flags)
-        freeVars = "".join([_PackOneTerm(x, flags) for x in term.freeVars])
+        freeVars = b"".join([_PackOneTerm(x, flags) for x in term.freeVars])
         info = arity + uniq + index + numFree + \
                module + oldIndex + oldUniq + pid + freeVars
         size = _PackInt4(4 + len(info)) # size includes the size field
@@ -1017,7 +1052,7 @@ def _PackFun(term, flags):
         module = _PackAtom(term.module)
         index = _PackInt(term.index)
         uniq = _PackInt(term.uniq)
-        freeVars = ""
+        freeVars = b""
         for freeVar in term.freeVars:
             freeVars = freeVars + _PackOneTerm(freeVar, flags)
         return _PackInt1(MAGIC_FUN) + numFreeVars + \
@@ -1032,8 +1067,8 @@ def _PackFunExport(term, flags):
 def _PackMap(term, flags):
     arity = _PackInt4(len(term))
     pairs = [_PackOneTerm(k, flags) + _PackOneTerm(v, flags) \
-             for (k,v) in term.iteritems()]
-    return _PackInt1(MAGIC_MAP) + arity + "".join(pairs)
+             for (k,v) in term.items()]
+    return _PackInt1(MAGIC_MAP) + arity + b"".join(pairs)
 
 def _PackId(i, maxSignificantBits=18):
     return _PackInt4(i & ((1 << maxSignificantBits) - 1))

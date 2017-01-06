@@ -26,7 +26,7 @@ Some characteristics:
 * The Python node is a single threaded callback-driven process.
 * The Python node is released under LGPL, see the file COPYING.LIB.
 * Work originally begain with Erlang R7 and Python 1.5
-* It was recently tested with Erlang 19.2 as well as R15B03 and Python 2.7
+* It was recently tested with Erlang 19.2 as well as R15B03 and Python 3.5
 * The source of information for this Python node has been the files
   `distribution_handshake.txt' and `erl_ext_dist.txt' together with
   the Java node source files, the `net_kernel.erl' and the
@@ -49,7 +49,7 @@ Erlang types vs Python types
 ============================
 
   Erlang type   Corresponding Python type and comments
-  int           int or long int
+  int           int
   float         float
   atom          erl_term.ErlAtom instance
   tuple         tuple

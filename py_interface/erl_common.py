@@ -30,12 +30,15 @@ import socket
 
 def ReadInt1(s):
     """Convert first byte from a string to an unsigned 8-bit integer."""
-    return ord(s[0])
+    if type(s) == int:
+        return s
+    elif type(s) == bytes:
+        return s[0]
 
 def ReadInt2(s):
     """Convert first two bytes from a string to an unsigned 16-bit integer."""
-    return (ord(s[0]) << 8) + \
-           (ord(s[1]) << 0)
+    return (s[0] << 8) + \
+           (s[1] << 0)
 
 def ReadInt4(s):
     """Convert first four bytes from a string to an unsigned 32-bit integer.
@@ -45,33 +48,26 @@ def ReadInt4(s):
     In Python on a 32-bit machine, integers are signed and within
     the range -2^31 .. (2^31 - 1). If the 32-bit integer fits within this
     range, an integer is returned, otherwise a long is returned."""
-    l4 = (long(ord(s[0])) << 24) + \
-         (ord(s[1]) << 16) + \
-         (ord(s[2]) <<  8) + \
-         (ord(s[3]) <<  0)
-    try:
-        i4 = int(l4)
-        return i4
-    except OverflowError:
-        return l4
-
+    return (s[0] << 24) + \
+           (s[1] << 16) + \
+           (s[2] <<  8) + \
+           (s[3] <<  0)
 
 def PackInt1(i):
     """Converts an unsigned 8-bit integer/long into a string, 1 byte long."""
-    return chr(i & 255)
+    return bytes([i & 255])
 
 def PackInt2(i):
     """Converts an unsigned 16-bit integer/long into a string, 2 byte long."""
-    return chr((i >> 8) & 255) + \
-           chr((i >> 0) & 255)
+    return bytes([(i >> 8) & 255,
+                  (i >> 0) & 255])
 
 def PackInt4(i):
     """Converts an unsigned 32-bit integer/long into a string, 4 byte long."""
-    return chr((i >> 24) & 255) + \
-           chr((i >> 16) & 255) + \
-           chr((i >>  8) & 255) + \
-           chr((i >>  0) & 255)
-
+    return bytes([(i >> 24) & 255,
+                  (i >> 16) & 255,
+                  (i >>  8) & 255,
+                  (i >>  0) & 255])
 
 def AlignNodeName(nodeName, useShortNodeNames=1):
     """Make sure the node name is a valid node name.
@@ -104,7 +100,7 @@ def AlignShortNodeName(nodeName):
     if "@" in nodeName:
         return nodeName
     fqdn = GetFullyQualifiedHostName()
-    shortHostName = string.split(fqdn, ".")[0]
+    shortHostName = fqdn.split(".")[0]
     return nodeName + "@" + shortHostName
 
 def AlignLongNodeName(nodeName):
@@ -127,10 +123,10 @@ def GetFullyQualifiedHostName(name=""):
         # Try the builtin version if it exists.
         # It does in Python 2.0
         return socket.getfqdn(name)
-    except AttributeError, info:
+    except AttributeError as info:
         # This fallback code is provided for Python 1.5.2 and earlier
         # It is stolen with pride from Python 2.0
-        name = string.strip(name)
+        name = name.strip()
         if not name or name == '0.0.0.0':
             name = socket.gethostname()
         try:
@@ -154,7 +150,7 @@ def getenv(envName):
              The env-value, or "" if the env-name isn't defined
     Throws:  nothing
     """
-    if os.environ.has_key(envName):
+    if envName in os.environ:
         return os.environ[envName]
     else:
         return ""
@@ -164,7 +160,7 @@ def getenv(envName):
 def IndexSeq(seq):
     """Given a sequence, return a list of tuples (i, elem[i]).
 Example: IndexSeq(["a", "b", "c"]) ==> [(0, "a"), (1, "b"), (2, "c")]."""
-    return map(None, range(len(seq)), seq)
+    return zip(range(len(seq)), seq)
 
 
 _logfilename = None
@@ -197,7 +193,7 @@ def Log(str):
             f.write("\n")
             f.flush()
             f.close()
-        except IOError, info:
+        except IOError as info:
             # Silently ignore
             pass
 
@@ -285,14 +281,14 @@ def DebugHex(module, txt, msg):
 def _DebugEmitText(txt):
     global _debugFileName
     if _debugFileName == None:
-        print txt
+        print(txt)
     else:
         try:
             f = open(_debugFileName, "w")
             f.write(txt)
             f.flush()
             f.close()
-        except IOError, info:
+        except IOError as info:
             # Silently ignore
             pass
 
@@ -301,14 +297,14 @@ def _HexDumpFormat(string):
     def dump_chars(addr, s):
         hexString = ""
         ascString = ""
-        for i, c in map(None, range(len(s)), s):
+        for i, c in zip(range(len(s)), s):
             if i > 0:
                 hexString = hexString + " "
-            hexString = hexString + ("%02x" % ord(c))
-            if (c < " ") or ((ord(c) >= 128) and (ord(c) < 160)):
+            hexString = hexString + ("%02x" % c)
+            if _IsNonAsciiPrintable(c):
                 ascString = ascString + "."
             else:
-                ascString = ascString + c
+                ascString = ascString + chr(c)
         numFill = 16 - len(s)
         hexString = hexString + "   " * numFill
         addrString = "%04x" % addr
@@ -326,6 +322,13 @@ def _HexDumpFormat(string):
             remaining_chars = remaining_chars[16:]
             addr = addr + 16
     return result
+
+def _IsNonAsciiPrintable(c):
+    if type(c) == bytes:
+        c = ord(c[0])
+    elif type(c) == str:
+        c = ord(c[0])
+    return (c < ord(" ")) or ((127 <= c) and (c < 160))
 
 class Callback:
     """This class provides a callback object.
@@ -371,15 +374,15 @@ class Callback:
 
     def __call__(self, *extraArgs):
         try:
-            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+            return self.callback(*extraArgs+self.optArgs, **self.namedArgs)
         except KeyboardInterrupt:
             raise
         except:
-            print "Error in VCallback %s" % self.__repr__()
+            print("Error in VCallback %s" % self.__repr__())
             raise
 
     def __repr__(self):
-        return "<Callback to %s>" % `self.callback`
+        return "<Callback to %s>" % repr(self.callback)
 
 class VCallback:
     """This class provides a callback object.
@@ -404,15 +407,15 @@ class VCallback:
 
     def __call__(self, *extraArgs):
         try:
-            return apply(self.callback, extraArgs+self.optArgs, self.namedArgs)
+            return self.callback(*extraArgs+self.optArgs, **self.namedArgs)
         except KeyboardInterrupt:
             raise
         except:
-            print "Error in VCallback %s" % self.__repr__()
-            print "  extraArgs=%s" % `extraArgs`
-            print "  self.optArgs=%s" % `self.optArgs`
-            print "  self.namedArgs=%s" % `self.namedArgs`
+            print("Error in VCallback %s" % self.__repr__())
+            print("  extraArgs=%s" % repr(extraArgs))
+            print("  self.optArgs=%s" % repr(self.optArgs))
+            print("  self.namedArgs=%s" % repr(self.namedArgs))
             raise
 
     def __repr__(self):
-        return "<VCallback to %s>" % `self.callback`
+        return "<VCallback to %s>" % repr(self.callback)

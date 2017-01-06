@@ -263,7 +263,7 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         Set up an object for a one-shot connection to host:port.
         """
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
-        self._recvdata = ""
+        self._recvdata = b""
         self._oneShotCallback = None
         self._hostName = hostName
         self._portNum = portNum
@@ -300,6 +300,7 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         Calls the CALLBACK function with argument PORT-NUMBER when
         the answer is available.
         """
+        nodeName = nodeName.encode("latin1")
         msg = self.PackInt1(self._PORT_PLEASE2_REQ) + nodeName
         unpackcb = erl_common.Callback(self._UnpackPortPlease2Resp, callback)
         self._SendOneShotReq(msg, unpackcb)
@@ -335,6 +336,7 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
         self._SendOneShotReq(msg, unpackcb)
 
     def StopReq(self, nodeName, callback):
+        nodeName = nodeName.encode("latin1")
         msg = self.PackInt1(self._STOP_REQ) + nodeName
         unpackcb = erl_common.Callback(self._UnpackStopResp, callback)
         self._SendOneShotReq(msg, unpackcb)
@@ -391,16 +393,16 @@ class ErlEPMDOneShotConnection(erl_async_conn.ErlAsyncClientConnection):
             distrVSNHi = self.ReadInt2(resp[8:10])
             distrVSNRng = (distrVSNLo, distrVSNHi)
             nLen = self.ReadInt2(resp[10:12])
-            nodeName = resp[12:12 + nLen]
+            nodeName = resp[12:12 + nLen].decode("latin1")
             if len(resp) == 12 + nLen + 1 and \
                self.ReadInt1(resp[-1]) == 0:
-                extra = ""
+                extra = b""
             else:
                 eLen = self.ReadInt2(resp[12 + nLen:12 + nLen + 2])
                 if eLen == 2:
                     extra = self.ReadInt2(resp[12 + nLen + 2:])
                 else:
-                    extra = ""
+                    extra = b""
             cb(res, portNum, nodeType, protocol, distrVSNRng, nodeName, extra)
 
     def _UnpackNamesResp(self, resp, cb):
@@ -437,7 +439,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
         """Constructor."""
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
         self._currentRequests = []
-        self._pendingInput = ""
+        self._pendingInput = b""
 
     ##
     ## Requests to the EPMD
@@ -461,7 +463,8 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
         See the file distribution_handshake.txt in the erlang distribution
         for more info on the NODE-TYPE, DISTR-VSN-RANGE and EXTRA arguments.
         """
-        aliveName = string.split(nodeName, "@")[0]
+        aliveName = bytes(nodeName.split("@")[0], "latin1")
+        extra = bytes(extra, "latin1")
         msg = (self.PackInt1(self._ALIVE2_REQ) +
                self.PackInt2(portNum) +
                self.PackInt1(nodeType) +
@@ -483,6 +486,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
 
         This request has no callback.
         """
+        nodeName = bytes(nodeName, "latin1")
         msg = (self.PackInt1(self._ALIVE_REQ) +
                self.PackInt2(portNum) +
                nodeName)
@@ -509,7 +513,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
     def _SendReq(self, req, cb):
         if not self._isConnected:
             raise ErlEpmdError("not connected to epmd")
-        self._NewCurrReq(ord(req[0]), cb)
+        self._NewCurrReq(req[0], cb)
         msg = self.PackInt2(len(req)) + req
         self.Send(msg)
 
@@ -584,7 +588,7 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
         if dataLen < 3:
             return (0, data)
 
-        data0 = ord(data[0])
+        data0 = data[0]
         if data0 == self._ALIVE_OK_RESP and \
            self._GetCurrReqId() == self._ALIVE_REQ:
             if dataLen < 3:
@@ -605,6 +609,6 @@ class ErlEPMDStdConnection(erl_async_conn.ErlAsyncClientConnection):
             self._CurrReqDone()
             return (1, data[4:])
 
-        currReqTxt = "current request is %s" % `self._GetCurrReqId()`
+        currReqTxt = "current request is %s" % repr(self._GetCurrReqId())
         erl_common.DebugHex(M, "unexpected msg, trown away, "+currReqTxt, data)
         return (0, "")

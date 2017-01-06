@@ -38,8 +38,8 @@ import string
 import select
 import time
 try:
-    from Tkinter import tkinter
-    import Tkinter
+    from tkinter import tkinter
+    import tkinter
 except: pass
 
 from py_interface import erl_common
@@ -112,21 +112,21 @@ class EVCallback:
 
     def __call__(self, *extraArgs):
         try:
-            return apply(self.callback, self.optArgs, self.namedArgs)
+            return self.callback(*self.optArgs, **self.namedArgs)
         except KeyboardInterrupt:
             raise
         except:
-            print "Error in EVCallback %s" % self.__repr__()
+            print("Error in EVCallback %s" % self.__repr__())
             raise
 
     def __repr__(self):
-        return "<EVCallback to %s>" % `self.callback`
+        return "<EVCallback to %s>" % repr(self.callback)
 
 _tk = None
 def _GetTk():
     global _tk
     if _tk == None:
-        _tk = Tkinter.Frame().tk
+        _tk = tkinter.Frame().tk
     return _tk
 
 
@@ -145,13 +145,11 @@ class _TimerEvent:
         self.timeOutTime = self.addedWhen + timeLeft
         self.cb = cb
 
-    def __cmp__(self, other):
-        if self.timeOutTime == other.timeOutTime:
-            return 0
-        elif self.timeOutTime < other.timeOutTime:
-            return -1
-        else:
-            return 1
+    def __lt__(self, other):
+        return self.timeOutTime < other.timeOutTime
+
+    def __eq__(self, other):
+        return self.timeOutTime == other.timeOutTime
 
 class _EventHandler:
     STATE_STANDALONE = 1
@@ -201,7 +199,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         Throws:  nothing
         """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
-        if self.readEvents.has_key(connection):
+        if connection in self.readEvents:
             handlers = self.readEvents[connection]
         else:
             handlers = []
@@ -245,7 +243,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         Throws:  nothing
         """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
-        if self.writeEvents.has_key(connection):
+        if connection in self.writeEvents:
             handlers = self.writeEvents[connection]
         else:
             handlers = []
@@ -288,7 +286,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         Throws:  nothing
         """
         cb = EVCallback(cbfunction, optArgs, namedArgs)
-        if self.exceptEvents.has_key(connection):
+        if connection in self.exceptEvents:
             handlers = self.exceptEvents[connection]
         else:
             handlers = []
@@ -351,7 +349,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
             raise ErlEventHandlerError("Cannot delete timers when using tk")
 
         indexForId = None
-        it = map(None, range(len(self.timerEvents)), self.timerEvents)
+        it = zip(range(len(self.timerEvents)), self.timerEvents)
         for i, ev in it:
             if ev.id == id:
                 indexForId = i
@@ -378,9 +376,9 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
     def __LoopStandalone(self):
         self.continueLooping = 1
         while self.continueLooping:
-            rList = self.readEvents.keys()
-            wList = self.writeEvents.keys()
-            eList = self.exceptEvents.keys()
+            rList = list(self.readEvents.keys())
+            wList = list(self.writeEvents.keys())
+            eList = list(self.exceptEvents.keys())
 
             timeout = None
             if len(self.timerEvents) > 0:
@@ -392,7 +390,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
                 # No timer to wait for
                 try:
                     reads, writes, excepts = select.select(rList, wList, eList)
-                except select.error, info:
+                except select.error as info:
                     (errno, errText) = info
                     if errno == 4:
                         # 'Interrupted system call'
@@ -411,7 +409,7 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
                 try:
                     reads, writes, excepts = select.select(rList, wList, eList,
                                                            timeout)
-                except select.error, info:
+                except select.error as info:
                     (errno, errText) = info
                     if errno == 4:
                         # 'Interrupted system call'
@@ -439,9 +437,9 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
 
             # Check for timers that have timed out
             while 1:
-                expiredTimers = filter(lambda ev, now=time.time():
+                expiredTimers = list(filter(lambda ev, now=time.time():
                                        ev.timeOutTime <= now,
-                                       self.timerEvents)
+                                       self.timerEvents))
                 if len(expiredTimers) == 0:
                     break               # skip the while loop
 
@@ -485,12 +483,12 @@ Note: When using the Tkinter eventhandler, you cannot delete timer-events."""
         ## The net result is that the code is all the same no matter
         ## what type of handler we delete.
         _GetTk().deletefilehandler(fileNum)
-        if self.readEvents.has_key(connection):
+        if connection in self.readEvents:
             cb = self.readEvents[connection][0]
             _GetTk().createfilehandler(fileNum, tkinter.READABLE, cb)
-        if self.writeEvents.has_key(connection):
+        if connection in self.writeEvents:
             cb = self.writeEvents[connection][0]
             _GetTk().createfilehandler(fileNum, tkinter.WRITABLE, cb)
-        if self.exceptEvents.has_key(connection):
+        if connection in self.exceptEvents:
             cb = self.exceptEvents[connection][0]
             _GetTk().createfilehandler(fileNum, tkinter.EXCEPTION,cb)

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 ## A test case for testing packing/unpacking of erlang-terms:
 ##

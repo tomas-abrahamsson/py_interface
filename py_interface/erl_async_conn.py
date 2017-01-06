@@ -68,7 +68,7 @@ class ErlAsyncPeerConnection:
 
     def _Init(self):
         self._isConnected = 0
-        self._pendingOutput = ""
+        self._pendingOutput = b""
 
     def _SetConnectionClosed(self):
         if self._isConnected:
@@ -91,14 +91,15 @@ class ErlAsyncPeerConnection:
             if numBytesSent < numBytesToSend:
                 remaining = data[numBytesSent:]
                 self._Queue(remaining)
-        except socket.error, (errNum, errText):
+        except socket.error as err:
+            errNum = err.args[0]
             if errNum == errno.EAGAIN or errNum == errno.EWOULDBLOCK:
                 self._Queue(data)
             else:
                 raise
 
     def _Queue(self, strToQueue):
-        if self._pendingOutput == "":
+        if self._pendingOutput == b"":
             self.evhandler.PushWriteEvent(self._connection, self._QueuedWrite)
         self._pendingOutput = self._pendingOutput + strToQueue
 
@@ -107,18 +108,19 @@ class ErlAsyncPeerConnection:
         try:
             numBytesSent = self._connection.send(self._pendingOutput)
             if numBytesSent == numBytesToSend:
-                self._pendingOutput = ""
+                self._pendingOutput = b""
                 self.evhandler.PopWriteEvent(self._connection)
             else:
                 self._pendingOutput = self._pendingOutput[numBytesSent:]
-        except socket.error, (errNum, errText):
+        except socket.error as err:
+            errNum = err.args[0]
             if errNum == errno.EAGAIN or errNum == errno.EWOULDBLOCK:
                 # still not possible to send...
                 # wait a bit more
                 pass
 
     def _In(self):
-        print "erl_sync_conn: please override me!"
+        print("erl_sync_conn: please override me!")
         newData = self._connection.recv(10000)
 
     def ReadInt1(self, s):
@@ -154,8 +156,8 @@ class ErlAsyncClientConnection(ErlAsyncPeerConnection):
             self.portNum = portNum
             self._SetConnectionOpen(s)
             return 1
-        except socket.error, errInfo:
-            print "socket error:", errInfo
+        except socket.error as errInfo:
+            print("socket error:", errInfo)
             self._SetConnectionClosed()
             return 0
 
@@ -176,8 +178,8 @@ class ErlAsyncServer(ErlAsyncPeerConnection):
             self.portNum = resultPortNum
             self._SetConnectionOpen(s)
             return resultPortNum
-        except socket.error, errInfo:
-            print "socket error:", errInfo
+        except socket.error as errInfo:
+            print("socket error:", errInfo)
             return None
 
     def _In(self):

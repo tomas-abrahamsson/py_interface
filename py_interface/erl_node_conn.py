@@ -47,8 +47,8 @@ M = "erl_node_conn"
 
 def CheckDigest(digest, challenge, cookie):
     """Checks that a digest is correct.
-    DIGEST      = string
-    CHALLENGE   = integer | longinteger
+    DIGEST      = bytes
+    CHALLENGE   = integer
     COOKIE      = string
 
     Returns: 1 | 0
@@ -59,16 +59,14 @@ def CheckDigest(digest, challenge, cookie):
 
 def GenDigest(challenge, cookie):
     """Generates a digest from a CHALLENGE and a COOKIE.
-    CHALLENGE   = integer | longinteger
+    CHALLENGE   = integer
     COOKIE      = string
 
     Returns: string
     Throws:  nothing
     """
-    challengeStr = str(challenge)
-    if challengeStr[-1] == 'L':
-        challengeStr = challengeStr[:-1]
-    return md5(cookie + challengeStr).digest()
+    challengeBytes = bytes(str(challenge), "ascii")
+    return md5(bytes(cookie, "ascii") + challengeBytes).digest()
 
 def GenChallenge():
     """Generates a challenge.
@@ -203,7 +201,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         Throws:  nothing
         """
         erl_async_conn.ErlAsyncClientConnection.__init__(self)
-        self._recvdata = ""
+        self._recvdata = b""
         self._hostName = None
         self._portNum = None
         self._nodeName = nodeName
@@ -275,10 +273,10 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         erl_ext_dist.txt in the Erlang distribution.
         """
         if msg == None:
-            packet = "p" + erl_term.TermToBinary(ctrlMsg)
+            packet = b"p" + erl_term.TermToBinary(ctrlMsg)
         else:
-            packet = "p" + (erl_term.TermToBinary(ctrlMsg) + \
-                            erl_term.TermToBinary(msg, self._peerFlags))
+            packet = b"p" + (erl_term.TermToBinary(ctrlMsg) + \
+                             erl_term.TermToBinary(msg, self._peerFlags))
         self._SendPacket(packet)
 
 
@@ -309,7 +307,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
     def _HandleData(self, data):
         remainingInput = data
-        while 1:
+        while True:
             if len(remainingInput) < self._packetLenSize:
                 return remainingInput
 
@@ -331,26 +329,26 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
     def _HandlePacket(self, data):
         if self._state == self._STATE_HANDSHAKE_RECV_STATUS:
             # First check that the correct message came in
-            if data[0] != "s":
+            if chr(data[0]) != "s":
                 erl_common.DebugHex(M, "handshake:recv_status: got", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
             status = data[1:]
-            if status == "ok" or status == "ok_simultaneous":
+            if status == b"ok" or status == b"ok_simultaneous":
                 self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE
-            elif status == "nok" or status == "not_allowed":
+            elif status == b"nok" or status == b"not_allowed":
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
                 self._connectFailedCb()
-            elif status == "alive":
+            elif status == b"alive":
                 self._SendStatusAliveTrue()
                 self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE
             else:
                 erl_common.DebugHex(M, "handshake:recv_status", data)
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE:
             # First check that the correct message came in
-            if data[0] != "n":
+            if chr(data[0]) != "n":
                 erl_common.DebugHex(M, "handshake:recv_cha", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
@@ -358,12 +356,12 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
             self._peerVersion = self.ReadInt2(data[1:3])
             self._peerFlags = self.ReadInt4(data[3:7])
             challenge = self.ReadInt4(data[7:11])
-            self._peerName = data[11:]
+            self._peerName = data[11:].decode("latin1")
             self._SendChallengeReply(challenge)
             self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE_ACK
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_ACK:
             # First check that the correct message came in
-            if data[0] != "a":
+            if chr(data[0]) != "a":
                 erl_common.DebugHex(M, "handshake:recv_cha_ack", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
@@ -389,7 +387,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                 # A tick
                 return
 
-            msgType = data[0]
+            msgType = chr(data[0])
             if msgType == "p":
                 terms = erl_term.BinariesToTerms(data[1:])
                 if len(terms) == 2:
@@ -402,7 +400,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
                     self._passThroughMsgCb(self, self.GetPeerNodeName(),
                                            controlMsg, msg)
                 else:
-                    debugTxt = "PassThrough-msg: terms=%s" % `terms`
+                    debugTxt = "PassThrough-msg: terms=%s" % repr(terms)
                     erl_common.DebugHex(M, debugTxt, data)
             else:
                 erl_common.DebugHex(M, "msgType=%c" % msgType, data)
@@ -415,7 +413,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         when it is time to send a tick to the other end, to indicate that
         we are still alive.
         """
-        self._SendPacket("")
+        self._SendPacket(b"")
 
     def _NoResponse(self):
         """This callback is called by the Ticker class instance
@@ -428,10 +426,10 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
 
 
     def _SendName(self):
-        packet = "n" + \
+        packet = b"n" + \
                  self.PackInt2(self._opts.GetDistrVersion()) + \
                  self.PackInt4(self._opts.GetDistrFlags()) + \
-                 self._nodeName
+                 bytes(self._nodeName, "latin1")
         self._SendHandshakeMsg(packet)
 
     def _SendStatusAliveTrue(self):
@@ -441,7 +439,7 @@ class ErlNodeOutConnection(erl_async_conn.ErlAsyncClientConnection):
         digest = GenDigest(challenge, self._opts.GetCookie())
         challengeToPeer = GenChallenge()
         self._challengeToPeer = challengeToPeer
-        packet = "r" + self.PackInt4(challengeToPeer) + digest
+        packet = b"r" + self.PackInt4(challengeToPeer) + digest
         self._SendHandshakeMsg(packet)
 
     def _SendHandshakeMsg(self, packet):
@@ -513,7 +511,7 @@ class ErlNodeServerSocket(erl_async_conn.ErlAsyncServer):
         return erl_async_conn.ErlAsyncServer.Start(self)
 
     def _NewConnection(self, s, remoteAddr):
-        erl_common.Debug(M, "new connection from %s" % `remoteAddr`)
+        erl_common.Debug(M, "new connection from %s" % repr(remoteAddr))
         inConn = ErlNodeInConnection(s,
                                      self._nodeName, self._opts,
                                      self._nodeUpCb, self._nodeDownCb,
@@ -572,7 +570,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                                of this type.
         """
         erl_async_conn.ErlAsyncPeerConnection.__init__(self, sock)
-        self._recvdata = ""
+        self._recvdata = b""
         self._hostName = None
         self._portNum = None
         self._nodeName = nodeName
@@ -608,10 +606,10 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         erl_ext_dist.txt in the Erlang distribution.
         """
         if msg == None:
-            packet = "p" + erl_term.TermToBinary(ctrlMsg)
+            packet = b"p" + erl_term.TermToBinary(ctrlMsg)
         else:
-            packet = "p" + (erl_term.TermToBinary(ctrlMsg) + \
-                            erl_term.TermToBinary(msg, self._peerFlags))
+            packet = b"p" + (erl_term.TermToBinary(ctrlMsg) + \
+                             erl_term.TermToBinary(msg, self._peerFlags))
         self._SendPacket(packet)
 
 
@@ -663,13 +661,13 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
     def _HandlePacket(self, data):
         if self._state == self._STATE_HANDSHAKE_RECV_NAME:
             # First check that the correct message came in
-            if data[0] != "n":
+            if chr(data[0]) != "n":
                 erl_common.DebugHex(M, "handshake:recv_name", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
             self._peerDistrVersion = self.ReadInt2(data[1:3])
             self._peerFlags = self.ReadInt4(data[3:7])
-            self._peerName = data[7:]
+            self._peerName = data[7:].decode("latin1")
             # FIXME: check for connections _to_ this node:
             #        check whether nodeName > ownNodeName (or check < ?)
             self._SendStatusOk()
@@ -677,7 +675,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
             self._state = self._STATE_HANDSHAKE_RECV_CHALLENGE_REPLY
         elif self._state == self._STATE_HANDSHAKE_RECV_CHALLENGE_REPLY:
             # First check that the correct message came in
-            if data[0] != "r":
+            if chr(data[0]) != "r":
                 erl_common.DebugHex(M, "handshake:recv_chreply", data)
                 self.Close()
                 self._state = self._STATE_DISCONNECTED
@@ -703,7 +701,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                 # A tick
                 return
 
-            msgType = data[0]
+            msgType = chr(data[0])
             if msgType == "p":
                 terms = erl_term.BinariesToTerms(data[1:])
                 if len(terms) == 2:
@@ -716,7 +714,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
                     peerName = self.GetPeerNodeName()
                     self._passThroughMsgCb(self, peerName, controlMsg)
                 else:
-                    debugTxt = "PassThrough-msg: terms=%s" % `terms`
+                    debugTxt = "PassThrough-msg: terms=%s" % repr(terms)
                     erl_common.DebugHex(M, debugTxt, data)
             else:
                 erl_common.DebugHex(M, "msgType=%c" % msgType, data)
@@ -729,7 +727,7 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
         when it is time to send a tick to the other end, to indicate that
         we are still alive.
         """
-        self._SendPacket("")
+        self._SendPacket(b"")
 
     def _NoResponse(self):
         """This callback is called by the Ticker class instance
@@ -742,20 +740,20 @@ class ErlNodeInConnection(erl_async_conn.ErlAsyncPeerConnection):
 
 
     def _SendStatusOk(self):
-        self._SendHandshakeMsg("sok")
+        self._SendHandshakeMsg(b"sok")
 
     def _SendChallenge(self):
         challenge = GenChallenge()
         self._challengeToPeer = challenge
-        packet = "n" + \
+        packet = b"n" + \
                  self.PackInt2(self._opts.GetDistrVersion()) + \
                  self.PackInt4(self._opts.GetDistrFlags()) + \
                  self.PackInt4(challenge) + \
-                 self._nodeName
+                 bytes(self._nodeName, "latin1")
         self._SendHandshakeMsg(packet)
 
     def _SendChallengeAck(self, challenge):
-        packet = "a" + GenDigest(challenge, self._opts.GetCookie())
+        packet = b"a" + GenDigest(challenge, self._opts.GetCookie())
         self._SendHandshakeMsg(packet)
 
     def _SendHandshakeMsg(self, packet):

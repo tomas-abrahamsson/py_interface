@@ -251,24 +251,24 @@ class _ErlRexMBox(ErlMBox):
         Send an request to execute a function in a module on a remote node.
         As for the Send method, this method returns immediately.
         """
-        if type(mod) == types.StringType:
+        if type(mod) == bytes or type(mod) == str:
             mod = erl_term.ErlAtom(mod)
-        if type(fun) == types.StringType:
+        if type(fun) == bytes or type(fun) == str:
             fun = erl_term.ErlAtom(fun)
 
         # Handle queue of pending callbacks for the remote node
-        if type(remoteNode) == types.StringType:
+        if type(remoteNode) == bytes or type(remoteNode) == str:
             remoteNodeName = remoteNode
         elif erl_term.IsErlAtom(remoteNode):
             remoteNodeName = remoteNode.atomText
-        if self._pendingRPCs.has_key(remoteNodeName):
+        if remoteNodeName in self._pendingRPCs:
             self._pendingRPCs[remoteNodeName].append(cb)
         else:
             self._pendingRPCs[remoteNodeName] = [cb]
 
         # Register a nodedown-callback for this node, so
         # we can call any rpc callbacks in case the node goes down
-        if not self._nodeDownSubscriptions.has_key(remoteNodeName):
+        if remoteNodeName not in self._nodeDownSubscriptions:
             id = self._node.NodeDownSubscribe(self._NodeDown)
             self._nodeDownSubscriptions[remoteNodeName] = id
 
@@ -293,28 +293,28 @@ class _ErlRexMBox(ErlMBox):
 
         An incoming message
         """
-        if type(msg) == types.TupleType and \
+        if type(msg) == tuple and \
            len(msg) == 2 and \
            erl_term.IsErlAtom(msg[0]) and \
            msg[0].atomText == "rex" and \
            len(self._pendingRPCs) > 0:
             self._RPCAnswer(sourceNodeName, msg[1])
         else:
-            erl_common.Debug("REX: Unexpected msg: %s" % `msg`)
+            erl_common.Debug("REX: Unexpected msg: %s" % repr(msg))
 
     def _RPCAnswer(self, sourceNodeName, answer):
         # Does this assumption always hold:
         # first answer is for first rpc-call?
         # Maybe this holds for calls/answers for one single node.
         # So the pendingRPCs is one queue per node.
-        if self._pendingRPCs.has_key(sourceNodeName):
+        if sourceNodeName in self._pendingRPCs:
             pendingRPCs = self._pendingRPCs[sourceNodeName]
             cb = pendingRPCs[0]
             self._pendingRPCs[sourceNodeName] = pendingRPCs[1:]
             cb(answer)
 
     def _NodeDown(self, nodeStatus, nodeName):
-        if self._pendingRPCs.has_key(nodeName):
+        if nodeName in self._pendingRPCs:
             callbacks = self._pendingRPCs[nodeName]
             self._pendingRPCs[nodeName] = []
             for cb in callbacks:
@@ -439,12 +439,12 @@ class ErlNode:
         """
         if not "@" in remoteNodeName:
             raise ErlNodeBadPeerNameError(remoteNodeName)
-        if self._ongoingPings.has_key(remoteNodeName):
+        if remoteNodeName in self._ongoingPings:
             pingCallbacks = self._ongoingPings[remoteNodeName]
             self._ongoingPings[remoteNodeName] = pingCallbacks + [pingCallback]
         else:
             self._ongoingPings[remoteNodeName] = [pingCallback]
-            [nodeName, hostName] = string.split(remoteNodeName, "@")
+            [nodeName, hostName] = remoteNodeName.split("@")
             e = erl_epmd.ErlEpmd(hostName)
             cb = erl_common.Callback(self._PingEpmdResponse, remoteNodeName)
             e.PortPlease2Req(nodeName, cb)
@@ -504,7 +504,7 @@ class ErlNode:
         Unsubscribes to nodeup-information.
         """
         cbs = self._nodeUpCb
-        for (index, (cbid, cb)) in map(None, range(len(cbs)), cbs):
+        for (index, (cbid, cb)) in zip(range(len(cbs)), cbs):
             if id == cbid:
                 del self._nodeUpCb[index]
                 return
@@ -539,7 +539,7 @@ class ErlNode:
         Unsubscribes to nodedown-information.
         """
         cbs = self._nodeDownCb
-        for (index, (cbid, cb)) in map(None, range(len(cbs)), cbs):
+        for (index, (cbid, cb)) in zip(range(len(cbs)), cbs):
             if id == cbid:
                 del self._nodeDownCb[index]
                 return
@@ -549,10 +549,10 @@ class ErlNode:
         Returns: void
         Throws:  nothing
         """
-        print "Connections:"
-        for k in self._connections.keys():
-            print "  %s --> %s" % (`k`, `self._connections[k]`)
-        print "--"
+        print("Connections:")
+        for k in list(self._connections.keys()):
+            print("  %s --> %s" % (repr(k), repr(self._connections[k])))
+        print("--")
 
 
     ##
@@ -567,9 +567,9 @@ class ErlNode:
         Throws:  <<IsRegistered>>
         """
         mboxPid = mbox.Self()
-        if self._registeredNames.has_key(name):
+        if name in self._registeredNames:
             raise ErlNodeIsRegisteredError(name)
-        if self._registeredPids.has_key(mboxPid):
+        if mboxPid in self._registeredPids:
             raise ErlNodeIsRegisteredError(name)
         self._registeredNames[name] = mboxPid
         self._registeredPids[mboxPid] = name
@@ -581,8 +581,8 @@ class ErlNode:
         Throws:  <<NotRegistered>>
         """
         mboxPid = mbox.Self()
-        if not self._registeredPids.has_key(mboxPid):
-            raise ErlNodeNotRegisteredError("pid not registered %s" % `mbox`)
+        if mboxPid not in self._registeredPids:
+            raise ErlNodeNotRegisteredError("pid not registered %s" % repr(mbox))
         name = self._registeredPids[mboxPid]
         del self._registeredPids[mboxPid]
         del self._registeredNames[name]
@@ -597,7 +597,7 @@ class ErlNode:
         mboxPid = self.WhereisPid(name)
         if mboxPid == None:
             return None
-        if not self._pids.has_key(mboxPid):
+        if mboxPid not in self._pids:
             return None
         return self._pids[mboxPid]
 
@@ -607,7 +607,7 @@ class ErlNode:
         Returns: <instance of ErlPid>
         Throws:  nothing
         """
-        if not self._registeredNames.has_key(name):
+        if name not in self._registeredNames:
             return None
         return self._registeredNames[name]
 
@@ -633,27 +633,27 @@ class ErlNode:
 
         ## First check for strings in the dest argument.
         ## Convert any strings to to atoms.
-        if type(dest) == types.StringType:
+        if type(dest) == str or type(dest) == bytes:
             dest = erl_term.ErlAtom(dest)
-        elif type(dest) == types.TupleType:
+        elif type(dest) == tuple:
             destPidName = dest[0]
             destNode = dest[1]
-            if type(destPidName) == types.StringType:
+            if type(destPidName) == str or type(destPidName) == bytes:
                 destPidName = erl_term.ErlAtom(destPidName)
-            if type(destNode) == types.StringType:
+            if type(destNode) == str or type(destNode) == bytes:
                 destNode = erl_term.ErlAtom(destNode)
             dest = (destPidName, destNode)
 
         ## Then split the dest into:
         ##    destPid/destPidName   and   destNode
         ## depending on its type.
-        if type(dest) == types.TupleType:
+        if type(dest) == tuple:
             destPid = dest[0]
             destNode = dest[1]
         elif erl_term.IsErlAtom(dest):
             destNode = self
             name = dest.atomText
-            if not self._registeredNames.has_key(name):
+            if name not in self._registeredNames:
                 return
             destPid = self._registeredNames[name]
         elif erl_term.IsErlPid(dest):
@@ -664,7 +664,7 @@ class ErlNode:
 
         ## Now do the sending...
         if destNode == self:
-            if not self._registeredPids.has_key(destPid):
+            if destPid not in self._registeredPids:
                 return
             mbox = self._registredPids[destPid]
             mbox.Msg(msg)
@@ -675,7 +675,7 @@ class ErlNode:
             #        this code continues after the Publish...
             self.Publish()
             destNodeName = destNode.atomText
-            if not self._connections.has_key(destNodeName):
+            if destNodeName not in self._connections:
                 # We don't have a connection to the destination
                 # We must open a connection.
                 # This is done by pinging with the ping-callback
@@ -747,7 +747,7 @@ class ErlNode:
         connection has been broken."""
         erl_common.Debug(M, "NODENOWN: nodeName=%s connection=%s" % \
                          (nodeName, connection))
-        if self._connections.has_key(nodeName):
+        if nodeName in self._connections:
             del self._connections[nodeName]
             for (id, cb) in self._nodeDownCb:
                 cb("nodedown", nodeName)
@@ -766,7 +766,7 @@ class ErlNode:
             for cb in callbacks:
                 cb("pang")
         else:
-            [otherNode, otherHost] = string.split(remoteNodeName, "@")
+            [otherNode, otherHost] = remoteNodeName.split("@")
             out = erl_node_conn.ErlNodeOutConnection(self._nodeName,
                                                      self._opts)
             connectedOkCb = erl_common.Callback(self._PingSucceeded,
@@ -795,7 +795,7 @@ class ErlNode:
     def _PingFailed(self, connection, remoteNodeName):
         """This internal routine signals that the ping of another node
         failed."""
-        if self._ongoingPings.has_key(remoteNodeName):
+        if remoteNodeName in self._ongoingPings:
             callbacks = self._ongoingPings[remoteNodeName]
             del self._ongoingPings[remoteNodeName]
             for cb in callbacks:
@@ -805,7 +805,7 @@ class ErlNode:
     def _PassThroughMsg(self, connection, remoteNodeName, ctrlMsg, msg=None):
         """This callback is called when a connection recevies a message of
         type passthrough. Currently all messages are of type passthrough."""
-        erl_common.Debug(M, "ctrlMsg=%s" % `ctrlMsg`)
+        erl_common.Debug(M, "ctrlMsg=%s" % repr(ctrlMsg))
 
         ctrlMsgOp = ctrlMsg[0]
         if ctrlMsgOp == self.CTRLMSGOP_LINK:
@@ -816,13 +816,13 @@ class ErlNode:
             cookie = ctrlMsg[1]
             toPid = self._InternPid(ctrlMsg[2])
             msg = msg
-            erl_common.Debug(M, "SEND: msg=%s" % `msg`)
-            if self._pids.has_key(toPid):
+            erl_common.Debug(M, "SEND: msg=%s" % repr(msg))
+            if toPid in self._pids:
                 mbox = self._pids[toPid]
                 mbox.Msg(remoteNodeName, msg)
             else:
                 erl_common.Debug(M, "Got SEND with no dest pid: %s" % toPid)
-                erl_common.Debug(M, "Pids:\n%s" % `self._pids`)
+                erl_common.Debug(M, "Pids:\n%s" % repr(self._pids))
         elif ctrlMsgOp == self.CTRLMSGOP_EXIT:
             fromPid = ctrlMsg[1]
             toPid = self._InternPid(ctrlMsg[2])
@@ -840,7 +840,7 @@ class ErlNode:
             toNameAtom = ctrlMsg[3]
             toName = toNameAtom.atomText
             msg = msg
-            if self._registeredNames.has_key(toName):
+            if toName in self._registeredNames:
                 mboxPid = self._registeredNames[toName]
                 mbox = self._pids[mboxPid]
                 mbox.Msg(remoteNodeName, msg)
@@ -898,14 +898,14 @@ class ErlNode:
             ref = ctrlMsg[3]
             pass
         else:
-            erl_common.Debug(M, "Unknown controlmsg: %s" % `ctrlMsg`)
+            erl_common.Debug(M, "Unknown controlmsg: %s" % repr(ctrlMsg))
 
     def _SendMsgToRemoteNode(self, pingResult, srcPid, destNode, destPid, msg):
         """This internal routine performs the actual sending."""
         if pingResult != "pong":
             return
         destNodeName = destNode.atomText
-        if not self._connections.has_key(destNodeName):
+        if destNodeName not in self._connections:
             return
         conn = self._connections[destNodeName]
         cookie = erl_term.ErlAtom("")
@@ -920,7 +920,7 @@ class ErlNode:
         The purpose is so that we'll be able to lookup pids
         in self._pids and self._registredPids.
         """
-        for existingPid in self._pids.keys():
+        for existingPid in list(self._pids.keys()):
             if existingPid.equals(newPid):
                 return existingPid
         return newPid
