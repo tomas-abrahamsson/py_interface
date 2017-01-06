@@ -35,13 +35,6 @@ SOURCES = py_interface/erl_node.py \
           py_interface/erl_eventhandler.py \
           py_interface/erl_term.py
 
-EXAMPLEPROGRAMS = examples/test_erl_epmd.py \
-		  examples/test_erl_node.py \
-                  examples/test_erl_node_conn.py \
-                  examples/test_erl_node_tk_1.py \
-                  examples/run_remote_exec_wrapper.sh \
-                  examples/test_remote_exec.py
-
 TESTPROGRAMS = test/pingpong_master_tests.erl \
                test/py_node_mgr.erl \
                test/pingpong_slave.py \
@@ -54,7 +47,7 @@ TESTPROGRAMS = test/pingpong_master_tests.erl \
 OBJECTS = test/test_erl_node_pingpong.beam
 
 
-DISTFILES = $(SOURCES) $(EXAMPLEPROGRAMS) $(TESTPROGRAMS) COPYING.LIB README \
+DISTFILES = $(SOURCES) $(TESTPROGRAMS) COPYING.LIB README \
 	py_interface/__init__.py py_interface/__init__.py.src \
 	vsn \
 	PKG-INFO PKG-INFO.src setup.py setup.py.src \
