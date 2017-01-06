@@ -1,10 +1,8 @@
 README for the py_interface
----------------------------
-$Id$
-
+===========================
 
 What is py_interface
---------------------
+====================
 
 The py_interface is a python-implementation of an Erlang node. For
 information on the Erlang programming language, visit the web site
@@ -28,7 +26,7 @@ Some characteristics:
 * The Python node is a single threaded callback-driven process.
 * The Python node is released under LGPL, see the file COPYING.LIB.
 * Work originally begain with Erlang R7 and Python 1.5
-* It was recently tested with Erlang 17.0 and Python 2.7
+* It was recently tested with Erlang 19.2 as well as R15B03 and Python 2.7
 * The source of information for this Python node has been the files
   `distribution_handshake.txt' and `erl_ext_dist.txt' together with
   the Java node source files, the `net_kernel.erl' and the
@@ -39,7 +37,7 @@ Some characteristics:
 
 
 General programming model
--------------------------
+=========================
 
 When using the py_interface, the general principle is to register a
 callback for different purposes, such as incoming messages to the pid,
@@ -47,28 +45,95 @@ an return from an rpc-call, or a timeout. The callback will get called
 whenever the message or return value arrives or when the timer times
 out.
 
-The easiest way to get acquainted with the Python node, check out the
-exampels and the test programs:
+Erlang types vs Python types
+============================
 
-* run_test_erl_node_pingping.sh
-  This tests communication, packing and unpacking of terms,
-  and show how to start the nodes.
+  Erlang type   Corresponding Python type and comments
+  int           int or long int
+  float         float
+  atom          erl_term.ErlAtom instance
+  tuple         tuple
+  list          list
+                or str
+                or erl_term.ErlImproperList
+  map           erl_term.ErlMap instance, which implements a custom
+                dictionary type
+  pid           erl_term.ErlPid instance
+  binary        erl_term.ErlBinary instance
+  bitstring     erl_term.ErlBitBinary instance
+  fun           erl_term.ErlFun or erl_term.ErlFunExport instance
+  reference     erl_term.ErlRef instance
+  port          erl_term.ErlPort instance
+  
 
-* test_erl_node_tk_1.py
-  This brings up a window in which you can select
-  to send a message or to make an rpc-call.
+Examples
+========
 
-* test_erl_node.py
-  This starts a Python node and registers a process called p.
-  You can then start an Erlang node and send messages to this
-  process.
+The easiest way to get acquainted with the Python node, run test programs
+interactively in two terminal windows:
 
-* test_erl_node_conn.py
-  This tests lowlevel inter-node communication.
+Example 1: A connection from and Erlang node to a Python node
+-------------------------------------------------------------
+
+We will create a Python node named test@127.0.0.1, with cookie x,
+it will in turn create and register a process with the name p.
+Then it will wait for messages, presumably on the form {Pid::pid(),Msg}
+and if it has this format, it will send {self(),Msg} back to Pid.
+
+We will then start an Erlang node which sends such a message and waits
+for something to be come back.
+
+
+In window 1:
+
+  $ cd test
+  $ ./pingpong_slave.py -d -n test@127.0.0.1 -c x
+
+
+In window 2:
+
+  $ erl -name x@127.0.0.1 -setcookie x \
+    -eval "{p,'test@127.0.0.1'}"' ! {self(),hello}, receive X -> io:format("Got ~p~n", [X]), halt() end.'
+
+
+Example 2: An outgoing connection from a Python node to an Erlang node
+----------------------------------------------------------------------
+
+We will make an outgoing connection from a Python node to a named
+process in an Erlang node. The Erlang side registers a process with name
+ppp in a node with name e@127.0.0.1. The Python side connects to this,
+and sends a message, the atom mmm.
+
+In window 1:
+
+  $ erl -name e@127.0.0.1 -setcookie x \
+    -eval 'register(ppp,self()), receive X -> io:format("Got ~p~n", [X]), halt() end.'
+
+In window 2:
+
+  $ cd test
+  $ ./out_connecting.py -d -n t@127.0.0.1 -c x ppp e@127.0.0.1 mmm
+
+Example 3: Make a remote procedure call (rpc) from Python to Erlang
+----------------------------------------------------------------------
+
+We will call a function in the Erlang node from the Python side.
+The '[[1,2,3]]' is a list of one argument, the list to sum. The single
+quotes are to protect it from being interpreted by the shell that we
+start it from.
+
+In window 1:
+
+  $ erl -name e@127.0.0.1 -setcookie x
+
+In window 2:
+
+  $ cd test
+  $ rpc_caller.py -d -n t@127.0.0.1 -c x e@127.0.0.1 lists sum '[[1,2,3]]'
 
 
 Contacting the author
----------------------
+=====================
 To contact the author, Tomas Abrahamsson: send a mail to:
 tab@lysator.liu.se or tomas.abrahamsson@gmail.com
 
