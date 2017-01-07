@@ -1,4 +1,4 @@
-version 2.0
+version 2.0, 2017-Jan-07
 
 	* Python 3 support (only). Dropped support for Python 2.
           (The changes to the packing and unpacking code, mostly,
