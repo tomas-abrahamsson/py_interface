@@ -76,7 +76,7 @@ class ErlTermError(Exception):
     def __init__(self, reason):
         self.reason = reason
 
-def ErlNumber(number):
+def _ErlNumber(number):
     return number
 
 _atom_cache = {}
@@ -207,11 +207,11 @@ def IsErlPid(term):
     """Checks whether a term is an Erlang process id or not."""
     return isinstance(term, ErlPid)
 
-def ErlTuple(elementsAsList):
+def _ErlTuple(elementsAsList):
     """An Erlang tuple. This maps to a python tuple."""
     return tuple(elementsAsList)
 
-def ErlList(elements):
+def _ErlList(elements):
     """An Erlang list. This maps to a python list."""
     return elements
 
@@ -298,7 +298,7 @@ def IsErlBitBinary(term):
     """Checks whether a term is an Erlang bit-binary or not."""
     return isinstance(term, ErlBitBinary)
 
-def ErlString(s):
+def _ErlString(s):
     """An Erlang list. This maps to a python string."""
     return s
 
@@ -605,11 +605,11 @@ def _UnpackOneTerm(data):
 
     if data0 == MAGIC_SMALL_INTEGER:
         n = _ReadInt1(data[1])
-        return (ErlNumber(n), data[2:])
+        return (_ErlNumber(n), data[2:])
 
     elif data0 == MAGIC_INTEGER:
         n = _ReadSignedInt4(data[1:5])
-        return (ErlNumber(n), data[5:])
+        return (_ErlNumber(n), data[5:])
 
     elif data0 == MAGIC_FLOAT:
         floatData = data[1:32]
@@ -619,11 +619,11 @@ def _UnpackOneTerm(data):
         except ValueError:
             floatStr = floatData
         f = float(floatStr)
-        return (ErlNumber(f), data[32:])
+        return (_ErlNumber(f), data[32:])
 
     elif data0 == MAGIC_NEW_FLOAT:
         (f,) = struct.unpack(">d", data[1:9])
-        return (ErlNumber(f), data[9:])
+        return (_ErlNumber(f), data[9:])
 
     elif data0 == MAGIC_ATOM:
         atomLen = _ReadInt2(data[1:3])
@@ -652,20 +652,20 @@ def _UnpackOneTerm(data):
     elif data0 == MAGIC_SMALL_TUPLE:
         arity = _ReadInt1(data[1])
         (elements, remainingData) = _UnpackTermSeq(arity, data[2:])
-        return (ErlTuple(elements), remainingData)
+        return (_ErlTuple(elements), remainingData)
 
     elif data0 == MAGIC_LARGE_TUPLE:
         arity = _ReadInt4(data[1:5])
         (elements, remainingData) = _UnpackTermSeq(arity, data[5:])
-        return (ErlTuple(elements), remainingData)
+        return (_ErlTuple(elements), remainingData)
 
     elif data0 == MAGIC_NIL:
-        return (ErlList([]), data[1:])
+        return (_ErlList([]), data[1:])
 
     elif data0 == MAGIC_STRING:
         strlen = _ReadInt2(data[1:3])
         s = data[3:3 + strlen]
-        return (ErlString(s), data[3 + strlen:])
+        return (_ErlString(s), data[3 + strlen:])
 
     elif data0 == MAGIC_LIST:
         # get the list head
@@ -676,7 +676,7 @@ def _UnpackOneTerm(data):
         (tail, newRemainingData) = _UnpackOneTerm(remainingData)
         if tail != []:
             return (ErlImproperList(elements,tail), newRemainingData)
-        return (ErlList(elements), newRemainingData)
+        return (_ErlList(elements), newRemainingData)
 
     elif data0 == MAGIC_BINARY:
         binlen = _ReadInt4(data[1:5])
@@ -698,7 +698,7 @@ def _UnpackOneTerm(data):
             bignum = bignum * 256 + int(d)
         if sign:
             bignum = bignum * -1
-        return (ErlNumber(bignum), data[3 + n:])
+        return (_ErlNumber(bignum), data[3 + n:])
 
     elif data0 == MAGIC_LARGE_BIG:
         n = _ReadInt4(data[1:5])
@@ -709,7 +709,7 @@ def _UnpackOneTerm(data):
             bignum = bignum * 256 + int(d)
         if sign:
             bignum = bignum * -1
-        return (ErlNumber(bignum), data[6 + n:])
+        return (_ErlNumber(bignum), data[6 + n:])
 
     elif data0 == MAGIC_NEW_CACHE:
         index = _ReadInt1(data[1])
