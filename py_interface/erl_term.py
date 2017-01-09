@@ -66,7 +66,6 @@ hAtom   = HMarker("atom")
 hRef    = HMarker("ref")
 hPort   = HMarker("port")
 hPid    = HMarker("pid")
-hBinary = HMarker("binary")
 hBitBinary = HMarker("bit-binary")
 hFun    = HMarker("fun")
 hFunExport = HMarker("fun-export")
@@ -83,8 +82,6 @@ def IODataToStr(iodata):
         return iodata
     elif type(iodata) == bytes:
         return iodata.decode("latin1")
-    elif isinstance(iodata, ErlBinary):
-        return iodata.contents.decode("latin1")
     elif type(iodata) == list:
         a = ""
         for elem in iodata:
@@ -95,7 +92,7 @@ def IODataToStr(iodata):
         return a
     else:
         raise ErlTermError("badarg, expected iodata() :: " +
-                           "str() | bytes() | ErlBinary() | [iodata()] " +
+                           "str() | bytes() | [iodata()] " +
                            "but found %s (%s)" %
                            (repr(type(iodata)), repr(iodata)))
 
@@ -272,25 +269,9 @@ class ErlImproperList:
 def IsErlImproperList(term):
     return isinstance(term, ErlImproperList)
 
-class ErlBinary:
-    """An Erlang binary. The following attributes are defined:
-    contents = bytes
-    """
-    def __init__(self, contents):
-        self.contents = contents
-    def __repr__(self):
-        return "<erl-binary: size=%d>" % len(self.contents)
-    def equals(self, other):
-        return IsErlBinary(other) and self.contents == other.contents
-    __eq__ = equals
-    def __ne__(self, other):
-        return not self.__eq__(other)
-    def __hash__(self):
-        return hash((hBinary, self.contents))
-
-def IsErlBinary(term):
-    """Checks whether a term is an Erlang binary or not."""
-    return isinstance(term, ErlBinary)
+def _ErlBinary(binaryAsBytes):
+    """A binary. This maps to python bytes."""
+    return binaryAsBytes
 
 class ErlBitBinary:
     """An Erlang bitstring: a possibly un-even number of octets
@@ -709,7 +690,7 @@ def _UnpackOneTerm(data):
     elif data0 == MAGIC_BINARY:
         binlen = _ReadInt4(data[1:5])
         s = data[5:5 + binlen]
-        return (ErlBinary(s), data[5 + binlen:])
+        return (_ErlBinary(s), data[5 + binlen:])
 
     elif data0 == MAGIC_BIT_BINARY:
         binlen = _ReadInt4(data[1:5])
@@ -872,7 +853,7 @@ def TermToBinary(term, flags=0xffffFFFF):
 
 def _PackOneTerm(term, flags):
     if type(term) == bytes:
-        return _PackBytes(term, flags)
+        return _PackBinary(term, flags)
     if type(term) == str:
         return _PackString(term, flags)
     elif type(term) == list:
@@ -893,8 +874,6 @@ def _PackOneTerm(term, flags):
         return _PackPort(term, flags)
     elif IsErlPid(term):
         return _PackPid(term, flags)
-    elif IsErlBinary(term):
-        return _PackBinary(term, flags)
     elif IsErlBitBinary(term):
         return _PackBitBinary(term, flags)
     elif IsErlFun(term):
@@ -908,14 +887,6 @@ def _PackOneTerm(term, flags):
     else:
         raise ErlTermError("Can't pack value of type %s: %s" %
                            (repr(type(term)), repr(term)))
-
-def _PackBytes(term, flags):
-    if len(term) == 0:
-        return _PackList([])
-    elif len(term) <= 65535:
-        return _PackInt1(MAGIC_STRING) + _PackInt2(len(term)) + term
-    else:
-        return _PackList([c for c in term], flags)
 
 def _PackString(term, flags):
     if len(term) == 0:
@@ -1045,9 +1016,7 @@ def _PackPid(term, flags):
     return _PackInt1(MAGIC_PID) + node + id + serial + creation
 
 def _PackBinary(term, flags):
-    return _PackInt1(MAGIC_BINARY) + \
-           _PackInt4(len(term.contents)) + \
-           term.contents
+    return _PackInt1(MAGIC_BINARY) + _PackInt4(len(term)) + term
 
 def _PackBitBinary(term, flags):
     return _PackInt1(MAGIC_BIT_BINARY) + \

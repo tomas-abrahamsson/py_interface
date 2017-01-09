@@ -62,7 +62,7 @@ Erlang types vs Python types
                 dictionary type, see below for more info
 
   pid           erl_term.ErlPid instance
-  binary        erl_term.ErlBinary instance
+  binary        bytes
   bitstring     erl_term.ErlBitBinary instance
 
   fun           erl_term.ErlFun or erl_term.ErlFunExport instance

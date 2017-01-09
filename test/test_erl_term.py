@@ -9,7 +9,7 @@ import unittest
 sys.path.insert(0, "..")
 
 from py_interface.erl_term import BinaryToTerm, TermToBinary, \
-    IODataToStr, ErlBinary, StrToList
+    IODataToStr, StrToList
 
 ## BF = fun(T) -> io:format("b\"~s\"~n", [[io_lib:format("\\x~2.16.0b",[C]) || <<C>> <= term_to_binary(T)]]) end.
 
@@ -30,8 +30,18 @@ class TestString(unittest.TestCase):
         self.assertEqual(IODataToStr([ord("a"),ord("b"), ord("c")]), 'abc')
         self.assertEqual(IODataToStr(b"abc"), 'abc')
         self.assertEqual(IODataToStr(["a",0xe5]), "aå")
-        self.assertEqual(IODataToStr(ErlBinary(b"abc")), "abc")
         self.assertEqual(StrToList("abc"), [97,98,99])
+
+class TestBinary(unittest.TestCase):
+    def test_unpack_binary(self):
+        b = b"\x83\x6d\x00\x00\x00\x03\x61\x62\x63" # <<"abc">>
+        self.assertEqual(BinaryToTerm(b), b'abc')
+        self.assertEqual(TermToBinary(b'abc'), b)
+
+    def test_unpack_latin1_diacritic_chars(self):
+        b = b"\x83\x6d\x00\x00\x00\x03\xe5\xe4\xf6" # <<"åäö">> (latin1 chars)
+        self.assertEqual(BinaryToTerm(b), b'\xe5\xe4\xf6')
+        self.assertEqual(TermToBinary(b'\xe5\xe4\xf6'), b)
 
 if __name__ == '__main__':
     unittest.main()
