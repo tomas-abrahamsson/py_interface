@@ -76,6 +76,34 @@ class ErlTermError(Exception):
     def __init__(self, reason):
         self.reason = reason
 
+def IODataToStr(iodata):
+    """Given IODATA as a string, as a list of character ordinal values,
+    as bytes or a possibly deep list of these types, return a string."""
+    if type(iodata) == str:
+        return iodata
+    elif type(iodata) == bytes:
+        return iodata.decode("latin1")
+    elif isinstance(iodata, ErlBinary):
+        return iodata.contents.decode("latin1")
+    elif type(iodata) == list:
+        a = ""
+        for elem in iodata:
+            if type(elem) == int:
+                a += chr(elem)
+            else:
+                a += IODataToStr(elem)
+        return a
+    else:
+        raise ErlTermError("badarg, expected iodata() :: " +
+                           "str() | bytes() | ErlBinary() | [iodata()] " +
+                           "but found %s (%s)" %
+                           (repr(type(iodata)), repr(iodata)))
+
+def StrToList(s):
+    """Convert a string S, to a list of integers, each integer being
+    the ordinal of corresponding character."""
+    return [ord(c) for c in s]
+
 def _ErlNumber(number):
     return number
 
