@@ -48,19 +48,24 @@ out.
 Erlang types vs Python types
 ============================
 
-  Erlang type   Corresponding Python type and comments
+  Erlang type   Corresponding Python type
+  ------------------------------------------------------------------
   int           int
   float         float
   atom          erl_term.ErlAtom instance
   tuple         tuple
+
   list          list
                 or str
                 or erl_term.ErlImproperList
+
   map           erl_term.ErlMap instance, which implements a custom
                 dictionary type
+
   pid           erl_term.ErlPid instance
   binary        erl_term.ErlBinary instance
   bitstring     erl_term.ErlBitBinary instance
+
   fun           erl_term.ErlFun or erl_term.ErlFunExport instance
   reference     erl_term.ErlRef instance
   port          erl_term.ErlPort instance
