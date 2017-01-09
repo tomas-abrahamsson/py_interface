@@ -55,9 +55,8 @@ Erlang types vs Python types
   atom          erl_term.ErlAtom instance
   tuple         tuple
 
-  list          list
-                or str
-                or erl_term.ErlImproperList
+  list          list or str or erl_term.ErlImproperList,
+                see below for more info
 
   map           erl_term.ErlMap instance, which implements a custom
                 dictionary type, see below for more info
@@ -70,6 +69,21 @@ Erlang types vs Python types
   reference     erl_term.ErlRef instance
   port          erl_term.ErlPort instance
   
+
+About strings and types for data transfer Erlang --> Python
+-----------------------------------------------------------
+
+In Erlang, there are no strings, only lists of integers, such as lists of
+Unicode code-points.  When the Erlang side serializes a list of integers,
+it may encode it as STRING, if it looks like it could be a string.  But it
+may also be serialized as a list of integers, depending on its content.
+But the heuristic may result in both false positives and false negatives.
+
+If the Erlang side has guessed that the list of integers may in fact be a
+string, it will be unpacked as a Python string.  If it has been unpacked as
+a list of integers, the function erl_term.IODataToStr can be used to turn
+it into a string.  A string can be turned into a list using the function
+erl_term.StrToList.
 
 About Erlang maps and Python dicts
 ----------------------------------

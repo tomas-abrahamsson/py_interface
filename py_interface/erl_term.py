@@ -300,7 +300,7 @@ def IsErlBitBinary(term):
 
 def _ErlString(s):
     """An Erlang list. This maps to a python string."""
-    return s
+    return s.decode("latin1")
 
 class ErlFun:
     """An Erlang process id. The following attributes are defined:

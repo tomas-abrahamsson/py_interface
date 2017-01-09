@@ -43,11 +43,13 @@ endif
 
 ## Check verbosity
 ifdef VERBOSE
-verbose_opt := verbose
-silencer    :=
+verbose_opt    := verbose
+pyunittest_opt := -v
+silencer       :=
 else
-verbose  :=
-silencer := @
+verbose        :=
+pyunittest_opt :=
+silencer       := @
 endif
 
 TEST_MODULES := \
@@ -60,6 +62,8 @@ BEAMS = $(patsubst %,%.beam,$(TEST_MODULES) $(SUPPORT_MODULES))
 
 EUNIT_MODULES = $(TEST_MODULES)
 
+PYUNITTEST_MODULES = test_erl_term
+
 empty_str :=
 space := $(empty_str) $(empty_str)
 comma := ,
@@ -68,6 +72,9 @@ all: $(BEAMS)
 
 test: all
 	@echo Testing...
+	@echo Python unit tests...
+	$(silencer) python3 -m unittest $(pyunittest_opt) $(PYUNITTEST_MODULES)
+	@echo Erlang unit tests...
 	$(silencer)$(ERL) $(ERL_BATCH_FLAGS) -pa `pwd` \
             -name pingpong_master-$$$$@127.0.0.1 \
             -eval " \

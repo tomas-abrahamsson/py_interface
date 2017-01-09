@@ -41,6 +41,7 @@ TESTPROGRAMS = test/pingpong_master_tests.erl \
                test/out_connecting.py \
                test/rpc_caller.py \
                test/qc_pingpong_master_tests.erl \
+               test/test_erl_term.py \
 	       test/Makefile.in
 
 
