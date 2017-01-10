@@ -1,3 +1,13 @@
+version 2.1, 2017-Jan-11
+
+	* Bugfix unpacking of strings: they were accidentally unpacked to
+          bytes, now they are unpacked to strings. Also added two
+          utillity functions: erl_term.IODataToStr and erl_term.StrToList.
+        * Change type represenatation of binaries, from the ErlBinary
+          class, to bytes, since this ought to be a more natural fit for
+          Python 3.
+        * Improve README
+
 version 2.0, 2017-Jan-07
 
 	* Python 3 support (only). Dropped support for Python 2.
