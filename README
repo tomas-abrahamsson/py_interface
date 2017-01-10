@@ -60,7 +60,7 @@ Erlang types vs Python types
                 or erl_term.ErlImproperList
 
   map           erl_term.ErlMap instance, which implements a custom
-                dictionary type
+                dictionary type, see below for more info
 
   pid           erl_term.ErlPid instance
   binary        erl_term.ErlBinary instance
@@ -70,6 +70,25 @@ Erlang types vs Python types
   reference     erl_term.ErlRef instance
   port          erl_term.ErlPort instance
   
+
+About Erlang maps and Python dicts
+----------------------------------
+
+In Erlang, any value can be a key in a map.  In Python, for the corresponding
+dict type, only immutable values can be keys; for example lists and class
+instances are mutable and thus cannot be used as keys in ordinary dicts.
+
+The way this is done in the py_interface ErlMap, which imitates a dict, is
+that for mutable keys, such as lists or ErlAtom instances, a hash of the
+serialized value is calculated upon insertion.  Please do not change such
+mutable objects used as ErlMap keys, after insertion.  Treat them as if
+they had been immutable, or the ErlMap probably won't work as expected.
+
+One more difference between the ErlMap and a normal Python dictionary is
+that in ErlMap, 0 and 0.0 are two different keys --- because that is how it
+is for Erlang maps, and it is desirable to preserve round-trip consistency
+for all terms.  For normal Python dicts, 0 and 0.0 is the same key.
+
 
 Examples
 ========
