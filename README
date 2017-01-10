@@ -8,6 +8,18 @@ The py_interface is a python-implementation of an Erlang node. For
 information on the Erlang programming language, visit the web site
 http://www.erlang.org/.
 
+Python 3 vs Python 2
+====================
+
+The py_interface as of version 2.0 supports only Python 3.
+For Python 2, use 1.x versions of py_interface.
+
+The intention for the 1.x is to only do bug fixes and minor work.
+Major efforts will target 2.x.
+
+Overview
+========
+
 The py_interface provides the possibility to create a node that may be
 used for communication with other Erlang nodes.
 
