@@ -130,10 +130,24 @@ pingpong_term_with_started(NodeName, Term, Opts) ->
             Output = get_output(),
             error({received_unexpected, [{got, Other}, {sent, Term},
                                          {output, Output}]})
-    after 10000 ->
+    after sensible_transmission_and_processing_timeout(Term) ->
             error({timeout, [{sent, Term},
                              {output, get_output()}]})
     end.
+
+sensible_transmission_and_processing_timeout(Term) ->
+    %% Quickcheck tests can be huge, and I've actually seen it time out
+    %% unnecessarily (probably) on a slow host. So make the timeout
+    %% proportional to the "size" of Term.  How to measure size? There's
+    %% erts_term:[flat_]size, but it is undocumented. Perhaps equally fine is
+    %% to just check the size of the term as a binary.
+
+    %% Let's say an extra half second per kB
+    ExtraTime = 500,
+    PerSize = 1000,
+    TimeFactor = ExtraTime / PerSize,
+
+    round(5000 + byte_size(term_to_binary(Term)) * TimeFactor).
 
 get_state() -> get_state([]).
 get_state(Opts) ->
