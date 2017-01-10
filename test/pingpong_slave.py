@@ -35,7 +35,8 @@ as_you_wish = erl_term.ErlAtom("ok_deliberately_failed_as_you_wished")
 def __TestMBoxCallback(msg, *k, **kw):
     global mb, quiet
     if not quiet:
-        print("Incoming msg=%s (k=%s, kw=%s)" % (repr(msg), repr(k), repr(kw)))
+        txt = "Incoming msg=%s (k=%s, kw=%s)" % (repr(msg), repr(k), repr(kw))
+        print(txt.encode("ascii", errors="backslashreplace"))
     if type(msg) == tuple:
         if len(msg) == 2:
             if erl_term.IsErlPid(msg[0]):
