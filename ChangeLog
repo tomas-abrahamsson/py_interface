@@ -1,3 +1,10 @@
+version 2.2, 2017-Jan-11
+
+        * Adapt to Erlang 20: Encode all atoms as UTF8, set the UTF8ATOMS
+        distribution flag (Erlang 20 won't accept a node witout this). Retain
+        decoding capability for old-format atoms, but encode to UTF-8 atoms,
+        which has been supported by Erlang since R16.
+
 version 2.1, 2017-Jan-11
 
 	* Bugfix unpacking of strings: they were accidentally unpacked to
