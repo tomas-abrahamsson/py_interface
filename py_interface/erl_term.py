@@ -109,14 +109,21 @@ class ErlAtom:
     """An Erlang atom. The following attributes are defined:
     atomText = string
     """
+
+    # A note about atoms and unicode: According
+    # to http://erlang.org/doc/apps/erts/erl_ext_dist.html#utf8_atoms
+    # support for unicode in atoms has been available since Erlang/OTP R16.
+    #
+    # In Erlang 20, it is no longer possible to connect a node that does
+    # not set the UTF8ATOMS distribution flag, and the external atom
+    # formats for latin1 (MAGIC_ATOM and MAGIC_SMALL_ATOM) are deprecated.
+    #
+    # Previously py_interface only knew about latin1 atoms.
+    # Now it can unpack old-format atoms, but will encode utf8 atoms.
+
     def __init__(self, atomText, cache=-1):
         if type(atomText) == bytes:
             atomText = atomText.decode("latin1")
-        if type(atomText) == str:
-            for c in atomText:
-                if ord(c) > 255:
-                    raise(ErlTermError("Non-latin1 chars in atom: %s" %
-                                       repr(atomText)))
         global _atom_cache
         if atomText == None and cache != -1:
             if cache in _atom_cache:
@@ -538,7 +545,10 @@ MAGIC_SMALL_BIG = 110
 MAGIC_FLOAT = 99
 MAGIC_SMALL_INTEGER = 97
 MAGIC_INTEGER = 98
-MAGIC_ATOM = 100
+MAGIC_ATOM = 100 # deprecated
+MAGIC_SMALL_ATOM = 115 # deprecated
+MAGIC_ATOM_UTF8 = 118
+MAGIC_SMALL_ATOM_UTF8 = 119
 MAGIC_NEW_REFERENCE = 114
 MAGIC_REFERENCE = 101
 MAGIC_PORT = 102
@@ -636,8 +646,23 @@ def _UnpackOneTerm(data):
 
     elif data0 == MAGIC_ATOM:
         atomLen = _ReadInt2(data[1:3])
-        atomText = data[3:3 + atomLen]
+        atomText = data[3:3 + atomLen].decode("latin1")
         return (ErlAtom(atomText), data[3 + atomLen:])
+
+    elif data0 == MAGIC_SMALL_ATOM:
+        atomLen = _ReadInt2(data[1])
+        atomText = data[2:2 + atomLen].decode("latin1")
+        return (ErlAtom(atomText), data[2 + atomLen:])
+
+    elif data0 == MAGIC_ATOM_UTF8:
+        atomLen = _ReadInt2(data[1:3])
+        atomText = data[3:3 + atomLen].decode("utf8")
+        return (ErlAtom(atomText), data[3 + atomLen:])
+
+    elif data0 == MAGIC_SMALL_ATOM_UTF8:
+        atomLen = _ReadInt1(data[1])
+        atomText = data[2:2 + atomLen].decode("utf8")
+        return (ErlAtom(atomText), data[2 + atomLen:])
 
     elif data0 == MAGIC_REFERENCE:
         (node, remainingData) = _UnpackOneTerm(data[1:])
@@ -976,8 +1001,15 @@ def _PackInt(term, flags):
         return _PackInt1(MAGIC_INTEGER) + _PackInt4(term)
 
 def _PackAtom(term, flags):
-    atomText = bytes(term.atomText, "latin1")
-    return _PackInt1(MAGIC_ATOM) + _PackInt2(len(atomText)) + atomText
+    atomText = bytes(term.atomText, "utf8")
+    if len(atomText) > 255:
+        return _PackInt1(MAGIC_ATOM_UTF8) + \
+            _PackInt2(len(atomText)) + \
+            atomText
+    else:
+        return _PackInt1(MAGIC_SMALL_ATOM_UTF8) + \
+            _PackInt1(len(atomText)) + \
+            atomText
 
 def _PackRef(term, flags):
     if type(term.id) == list:
