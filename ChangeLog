@@ -1,4 +1,4 @@
-version 2.2, 2017-Jan-11
+version 2.2, 2017-Jul-11
 
         * Adapt to Erlang 20: Encode all atoms as UTF8, set the UTF8ATOMS
         distribution flag (Erlang 20 won't accept a node witout this). Retain
