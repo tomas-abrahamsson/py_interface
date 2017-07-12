@@ -5,6 +5,9 @@ version 2.2, 2017-Jul-11
         decoding capability for old-format atoms, but encode to UTF-8 atoms,
         which has been supported by Erlang since R16.
 
+        This also means No longer any support for Erlang R15 or ealier. (The
+        last Erlang R15 version was released in the end of the year 2012.)
+
 version 2.1, 2017-Jan-11
 
 	* Bugfix unpacking of strings: they were accidentally unpacked to
