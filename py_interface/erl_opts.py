@@ -47,12 +47,18 @@ DISTR_FLAG_INTERNALTAGS       = 0x8000
 DISTR_FLAG_UTF8ATOMS          = 0x10000
 DISTR_FLAG_MAPTAG             = 0x20000
 
+EPMD_PORT                     = 4369
+EPMD_HOST                     = "localhost"
+
+
 class ErlNodeOpts:
     def __init__(self,
                  netTickTime=60,
                  shortNodeNames=1,
                  cookie="",
                  distrVersion=5,
+                 epmdPort = EPMD_PORT,
+                 epmdHost = EPMD_HOST,
                  distrFlags=(DISTR_FLAG_EXTENDEDREFERENCES|
                              DISTR_FLAG_EXTENDEDPIDSPORTS|
                              DISTR_FLAG_FUNTAGS|
@@ -68,11 +74,23 @@ class ErlNodeOpts:
         self._cookie = cookie
         self._distrVersion = distrVersion
         self._distrFlags = distrFlags
+        self._epmdPort = epmdPort
+        self._epmdHost = epmdHost
 
     def GetNetTickTime(self):
         return self._netTickTime
     def SetNetTickTime(self, netTickTime):
         self._netTickTime = netTickTime
+
+    def GetEpmdPort(self):
+        return self._epmdPort
+    def SetEpmdPort(self, epmdPort):
+        self._epmdPort = epmdPort
+
+    def GetEpmdHost(self):
+        return self._epmdHost
+    def SetEpmdHost(self, epmdHost):
+        self._epmdHost = epmdHost
 
     def GetShortNodeNames(self):
         return self._shortNodeNames
