@@ -1,3 +1,8 @@
+version 2.3, 2018-Jan-03
+
+        * allow to specify Epmd host and port number through ErlNodeOpts
+        Thanks to Dmitry Shestak
+
 version 2.2, 2017-Jul-11
 
         * Adapt to Erlang 20: Encode all atoms as UTF8, set the UTF8ATOMS
