@@ -27,7 +27,6 @@
 import sys
 import types
 import string
-import traceback
 
 
 from py_interface import erl_epmd
