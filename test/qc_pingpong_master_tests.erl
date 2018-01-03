@@ -26,8 +26,6 @@
 %%% for ping-pong-ing msgs, master side
 -module(qc_pingpong_master_tests).
 
--compile(export_all).
-
 -define(TIMEOUT, 180). % extra time needed in case of shrinking, on slow host
 
 -export([prop_same_term_returns_after_roundtrip/1]).
