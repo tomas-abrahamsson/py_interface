@@ -27,6 +27,7 @@
 import sys
 import types
 import string
+import traceback
 
 
 from py_interface import erl_epmd
@@ -377,8 +378,9 @@ class ErlNode:
 
         self._creation = 0
         self._connections = {}
-
-        self._epmd = erl_epmd.ErlEpmd()
+            
+        self._epmd = erl_epmd.ErlEpmd(hostName=opts.GetEpmdHost(),
+                                      portNum = opts.GetEpmdPort() )
         self._ongoingPings = {}
 
         self._isServerPublished = 0
